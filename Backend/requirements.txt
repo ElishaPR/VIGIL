@@ -1,0 +1,15 @@
+fastapi==0.122.0  
+uvicorn[standard]==0.38.0  
+pydantic==2.12.4  
+sqlalchemy==2.0.36  
+psycopg2-binary==2.9.11 
+python-jose[cryptography]==3.3.0  
+passlib[bcrypt]==3.2.2  
+python-multipart==0.0.20  
+sendgrid==6.11.0  
+firebase-admin==6.5.0  
+pytz==2025.2  
+pgcli==4.3.0  
+python-dotenv==1.0.0  
+pydantic[email]==2.12.4
+apscheduler==3.11.2

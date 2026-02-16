@@ -1,0 +1,1 @@
+{"reminder": {"reminder_title": "ex", "schedule_type": "CUSTOM", "reminder_at": "2026-01-18T04:30:00.000Z", "repeat_type": "NONE", "push_notification": true, "priority": "MEDIUM", "notes": "ABC TEST"}, "document": {"doc_category": "TRAVEL", "expiry_date": "2026-01-20"}}
