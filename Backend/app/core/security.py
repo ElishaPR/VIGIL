@@ -2,8 +2,7 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 import os
 from datetime import datetime, timedelta, timezone
-from fastapi.security import OAuth2PasswordBearer
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -25,9 +24,12 @@ def create_access_token(data: dict):
      encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
      return encoded_jwt
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
+def get_current_user_payload(request: Request):
+     token = request.cookies.get("access_token")
 
-def get_current_user_payload(token: str = Depends(oauth2_scheme)):
+     if not token:
+          raise HTTPException(status_code=401, detail="Not authenticated!")
+     
      try:
           payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
           return payload
