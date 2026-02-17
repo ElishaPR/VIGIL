@@ -124,7 +124,7 @@ dmypy.json
 logs/
 
 # Config files with secrets (e.g., API keys for SendGrid/FCM, DB passwords)
-config.py
+# config.py
 secrets.py
 .env.local
 .env.production
