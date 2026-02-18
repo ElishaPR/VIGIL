@@ -16,6 +16,7 @@ export function LoginPage(){
         const response = await fetch("http://localhost:8000/users/login", {
             method: "POST",
             headers: { "Content-Type": "application/json"},
+            credentials: "include",
             body: JSON.stringify({
                 email_address: userEmailAddress,
                 raw_password: userPassword
@@ -56,7 +57,6 @@ export function LoginPage(){
                     </div>
 
                     <AuthFooter text="Don't have an account?" linkText="Sign Up" linkTo="/signup"/>
-
                 </form>
             </AuthCard>
         </AuthLayout>

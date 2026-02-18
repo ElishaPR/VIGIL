@@ -1,5 +1,5 @@
 from app.database import get_db
-from fastapi import APIRouter, Depends, HTTPException, Form
+from fastapi import APIRouter, Depends, HTTPException, Form, Response
 from sqlalchemy.orm import Session
 from app.schemas.users import SignUpData, SignUpUserResponse, LoginData, LoginUserResponse
 from app.crud.users import create_user, authenticate_user
@@ -22,16 +22,22 @@ def signup( signup_data: SignUpData, db: Session = Depends(get_db)):
     
 @router.post("/login", response_model=LoginUserResponse, status_code=200)
 def login(
-    username: str = Form(...),
-    password: str = Form(...), 
+    login_data: LoginData,
+    response: Response,  
     db: Session = Depends(get_db)):
-    login_data = LoginData(email_address=username, raw_password=password)
     try:
         user = authenticate_user(db, login_data)
         if not user:
             raise HTTPException(status_code=401, detail="Invalid credentials")
         access_token = create_access_token({"user_id": user.user_id,"user_uuid": str(user.user_uuid), "email": user.email_address, "type": "access"})
-        return LoginUserResponse(access_token=access_token, user_uuid=str(user.user_uuid), display_name=user.display_name)
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False, #Change this to True in production when using with HTTPS
+            samesite="lax"
+        )
+        return LoginUserResponse(access_token="", user_uuid=str(user.user_uuid), display_name=user.display_name)
     except HTTPException:
         raise
     except Exception:
