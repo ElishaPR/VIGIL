@@ -2,13 +2,14 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 import os
 from datetime import datetime, timedelta, timezone
-from fastapi import Depends, HTTPException, Request
+from fastapi import HTTPException, Request
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY")
 JWT_ALGORITHM=os.getenv("JWT_ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+ACCESS_TOKEN_EXPIRE_SECONDS=ACCESS_TOKEN_EXPIRE_MINUTES * 60
 if not JWT_SECRET_KEY:
      raise RuntimeError("JWT_SECRET_KEY is not set.")
 if not JWT_ALGORITHM:

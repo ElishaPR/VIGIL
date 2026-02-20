@@ -33,7 +33,5 @@ class LoginUserResponse(BaseModel):
     display_name: str
     message: str = "Login successful."
 
-
-
-
-
+class SaveFCMTokenData(BaseModel):
+    fcm_token: str  

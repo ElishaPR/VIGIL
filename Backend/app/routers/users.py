@@ -1,10 +1,10 @@
 from app.database import get_db
 from fastapi import APIRouter, Depends, HTTPException, Form, Response
 from sqlalchemy.orm import Session
-from app.schemas.users import SignUpData, SignUpUserResponse, LoginData, LoginUserResponse
+from app.schemas.users import SignUpData, SignUpUserResponse, LoginData, LoginUserResponse, SaveFCMTokenData
 from app.crud.users import create_user, authenticate_user
 from sqlalchemy.exc import IntegrityError
-from app.core.security import create_access_token
+from app.core.security import create_access_token, ACCESS_TOKEN_EXPIRE_SECONDS, get_current_user_payload
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -28,18 +28,24 @@ def login(
     try:
         user = authenticate_user(db, login_data)
         if not user:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise HTTPException(status_code=401, detail="Invalid credentials.")
         access_token = create_access_token({"user_id": user.user_id,"user_uuid": str(user.user_uuid), "email": user.email_address, "type": "access"})
         response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
             secure=False, #Change this to True in production when using with HTTPS
-            samesite="lax"
+            samesite="lax",
+            max_age=ACCESS_TOKEN_EXPIRE_SECONDS
         )
         return LoginUserResponse(access_token="", user_uuid=str(user.user_uuid), display_name=user.display_name)
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(status_code=500, detail="Login Failed!")
-        
+    
+@router.post("/save-fcm-token", status_code=200)
+def save_fcm_token(save_fcm_token_data: SaveFCMTokenData, db: Session = Depends(get_db), token_data: dict = Depends(get_current_user_payload)):
+    try:
+        user_id = token_data["user_id"]
+        user_fcm_token = create_fcm_token(db, save_fcm_token_data, user_id)

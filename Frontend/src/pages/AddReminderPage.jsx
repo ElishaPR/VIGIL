@@ -1,10 +1,11 @@
 import React, { useState } from "react";
+import { messaging } from "../firebase";
+import { getToken } from "firebase/messaging";
 import { AuthLayout } from "../components/Auth/AuthLayout";
 import { AuthCard } from "../components/Auth/AuthCard";
 import { AuthHeader } from "../components/Auth/AuthHeader";
 import { FormInput } from "../components/Auth/FormInput";
 import { PrimaryButton } from "../components/Auth/PrimaryButton";
-import { getMessaging, getToken } from "firebase/messaging";
 
 export function AddReminderPage() {
     const [docCategory, setDocCategory] = useState("");
@@ -39,15 +40,50 @@ export function AddReminderPage() {
                 }
             })
         );
-        formData.append("uploaded_file", uploadedFile);
+
+        if(uploadedFile){
+            formData.append("uploaded_doc", uploadedFile);
+        }
+
+        if(pushNotification){
+            let permission = Notification.permission;
+
+            if(permission !== "granted"){
+                permission = await Notification.requestPermission();
+            }
+
+            if(permission === "granted"){
+                let registration = await navigator.serviceWorker.getRegistration();
+
+                if(!registration){
+                    registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+                }
+
+                const token = await getToken(messaging, {
+                    vapidKey: import.meta.env.VITE_FIREBASE_PUBLIC_VAPID_KEY,
+                    serviceWorkerRegistration: registration
+                });
+
+                if (token){
+                    await fetch("http://localhost:8000/users/save-fcm-token", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json"},
+                        body: JSON.stringify({ fcm_token: token})
+                    });
+                }
+            } else {
+                alert("Push notification permission denied.");
+                setPushNotification(false);
+            }
+        }
         
         const response = await fetch("http://localhost:8000/reminders/addreminder", {
             method: "POST",
             credentials: "include",
             body: formData
-            }),
         });
-
+        
         const result = await response.json();
         alert(result.message);       
     };
@@ -129,9 +165,9 @@ export function AddReminderPage() {
                         <select 
                         id="repeatType" 
                         required 
-                        className="w-full font-medium border-2 border-gray-500 rounded shadow-md p-2 text-base md:flex-1 md:max-w-[200px]
+                        className="w-full font-medium border-2 border-gray-500 rounded shadow-md p-2 text-base md:flex-1 md:max-w-[200px]"
                         value={repeatType}
-                        onChange={(e) => setRepeatType(e.target.value)}">
+                        onChange={(e) => setRepeatType(e.target.value)}>
                             <option value="NONE">NONE</option>
                             <option value="WEEKLY">WEEKLY</option>
                             <option value="MONTHLY">MONTHLY</option>
@@ -147,7 +183,7 @@ export function AddReminderPage() {
                             type="checkbox" 
                             id="pushNotification" 
                             name="pushNotification"
-                            value={pushNotification}
+                            checked={pushNotification}
                             onChange={(e) => setPushNotification(e.target.checked)} />
                             <span>Enable Pop-Up Notification</span>
                         </label>
@@ -155,16 +191,16 @@ export function AddReminderPage() {
 
                     <div className="flex flex-col space-y-2 md:flex md:flex-row md:items-center md:gap-4">
                         <label 
-                        htmlFor="repeatType" 
+                        htmlFor="priority" 
                         className="text-base font-medium text-black text-left md:text-lg md:w-[300px] md:flex-shrink-0">
                             Priority:
                         </label>
                         <select 
-                        id="repeatType" 
+                        id="priority" 
                         required 
-                        className="w-full font-medium border-2 border-gray-500 rounded shadow-md p-2 text-base md:flex-1 md:max-w-[200px]
+                        className="w-full font-medium border-2 border-gray-500 rounded shadow-md p-2 text-base md:flex-1 md:max-w-[200px]"
                         value={priority}
-                        onChange={(e) => setPriority(e.target.value)}">
+                        onChange={(e) => setPriority(e.target.value)}>
                             <option value="HIGH">High</option>
                             <option value="MEDIUM">Medium</option>
                             <option value="LOW">Low</option>
@@ -193,12 +229,24 @@ export function AddReminderPage() {
                     </div>
                     
                     <div className="flex flex-col pt-4 justify-center ">
-                        <PrimaryButton text="Add" />
-                        <PrimaryButton text="Cancel" />
-                        <PrimaryButton text="Reset" />
+                        <PrimaryButton 
+                        text="Add" 
+                        type="submit" 
+                        variant="primary" />
+
+                        <PrimaryButton 
+                        text="Cancel" 
+                        type="button" 
+                        onClick={() => window.history.back()} 
+                        variant="secondary"/>
+
+                        <PrimaryButton 
+                        text="Reset" 
+                        type="reset" 
+                        variant="danger"/>
                     </div>
                 </form>
             </AuthCard>
         </AuthLayout>
-    )
+    );
 }

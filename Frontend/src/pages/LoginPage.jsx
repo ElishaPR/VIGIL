@@ -1,4 +1,5 @@
 import React, {useState} from "react";
+import {useNavigate} from "react-router-dom";
 import {AuthLayout} from "../components/Auth/AuthLayout";
 import {AuthCard} from "../components/Auth/AuthCard";
 import {AuthHeader} from "../components/Auth/AuthHeader";
@@ -7,6 +8,7 @@ import {PrimaryButton} from "../components/Auth/PrimaryButton";
 import {AuthFooter} from "../components/Auth/AuthFooter";
 
 export function LoginPage(){
+    const navigate = useNavigate();
     const [userEmailAddress, setUserEmailAddress] = useState("");
     const [userPassword, setUserPassword] = useState("");
 
@@ -25,7 +27,12 @@ export function LoginPage(){
 
         const result = await response.json();
         alert(result.message);
-    }
+        if(response.ok){
+            setTimeout(() => {
+                navigate("/addreminder");
+            }, 1500);
+        }
+    };
 
     return(
         <AuthLayout>
@@ -53,7 +60,10 @@ export function LoginPage(){
                     onChangeValue={setUserPassword}/>
 
                     <div className="flex pt-4 justify-center">
-                        <PrimaryButton text="Login"/>
+                        <PrimaryButton 
+                        text="Login" 
+                        type="submit"
+                        variant="primary"/>
                     </div>
 
                     <AuthFooter text="Don't have an account?" linkText="Sign Up" linkTo="/signup"/>

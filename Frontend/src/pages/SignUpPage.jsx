@@ -82,7 +82,10 @@ export function SignUpPage(){
                     </div>
 
                     <div className="flex justify-center space-x-2 mt-auto py-4 md:flex md:flex-row md:items-center md:gap-28 md:justify-center">
-                        <PrimaryButton text="Sign Up" />
+                        <PrimaryButton 
+                        text="Sign Up" 
+                        type="submit"
+                        variant="primary"/>
                     </div>
 
                     <AuthFooter text="Already have an account?" linkText="Log in" linkTo="/login"/>
