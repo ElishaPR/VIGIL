@@ -35,3 +35,8 @@ class LoginUserResponse(BaseModel):
 
 class SaveFCMTokenData(BaseModel):
     fcm_token: str  
+
+class SaveFCMTokenResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    message: str = "Push Notification details saved successfully."
