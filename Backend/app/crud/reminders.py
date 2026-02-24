@@ -12,10 +12,18 @@ def create_reminder(db: Session, reminder_data: dict)->Reminder:
 def get_not_sent_reminder_ids(db: Session):
     window_start = func.now() - func.interval('1 minute')
     reminder_ids = (db.query(Reminder.reminder_id).filter(Reminder.reminder_status == "PENDING", Reminder.reminder_at > window_start, Reminder.reminder_at<=func.now()).all())
-    return (r[0] for r in reminder_ids)
+    return [r[0] for r in reminder_ids]
 
 def mark_reminders_as_processing(db: Session, reminder_ids: list):
     if not reminder_ids:
         return
     db.query(Reminder).filter(Reminder.reminder_id.in_(reminder_ids)).update({Reminder.reminder_status: "PROCESSING"}, synchronize_session=False)
     db.commit()
+
+def fetch_reminder_details(db: Session, reminder_ids: list):
+    if not reminder_ids:
+        return {"doc_ids": [], "reminders": []}
+    results = (db.query(Reminder.doc_id, Reminder.schedule_type, Reminder.reminder_at, Reminder.push_notification, Reminder.reminder_title, Reminder.repeat_type, Reminder.reminder_status)).filter(Reminder.reminder_id.in_(reminder_ids)).all()
+    doc_ids = [r.doc_id for r in results]
+    reminders = [{"schedule_type": r.schedule_type, "reminder_at": r.reminder_at, "push_notification": r.push_notification, "reminder_title": r.reminder_title, "repeat_type": r.repeat_type, "reminder_status": r.reminder_status} for r in results]   
+    return {"doc_ids": doc_ids, "reminders": reminders}

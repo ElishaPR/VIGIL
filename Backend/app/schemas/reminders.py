@@ -8,5 +8,4 @@ class ReminderData(BaseModel):
     repeat_type: str
     push_notification: bool 
     priority: str
-    notes: str
-    
+    notes: str    

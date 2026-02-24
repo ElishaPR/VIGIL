@@ -24,4 +24,9 @@ def authenticate_user(db: Session, user_in: LoginData)->Union[User, None]:
     if not pwd_context.verify(user_in.raw_password, user.hashed_password):
         return None
     return user
-    
+
+def fetch_user_details(db: Session, user_ids: list):
+    if not user_ids:
+        return []
+    users = (db.query(User.email_address, User.display_name)).filter(User.user_id.in_(user_ids)).all()
+    return users
