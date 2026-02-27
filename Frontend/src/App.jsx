@@ -8,10 +8,25 @@ import {AddReminderPage} from "./pages/AddReminderPage.jsx";
 import {BrowserRouter, Routes, Route} from "react-router-dom";
 
 function App() {
+
   useEffect(() => {
-    onMessage(messaging, (payload) => {
+
+    const unsubscribe = onMessage(messaging, (payload) => {
       console.log("Foreground message received:", payload);
+
+      const title = payload.notification?.title;
+      const body = payload.notification?.body;
+
+      if (Notification.permission === "granted" && title && body) {
+        new Notification(title, {
+          body: body,
+          icon: "/icon.png"
+        });
+      }
     });
+
+    return () => unsubscribe();
+
   }, []);
 
   return (

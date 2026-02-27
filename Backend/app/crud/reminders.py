@@ -23,7 +23,6 @@ def mark_reminders_as_processing(db: Session, reminder_ids: list):
 def fetch_reminder_details(db: Session, reminder_ids: list):
     if not reminder_ids:
         return {"doc_ids": [], "reminders": []}
-    results = (db.query(Reminder.doc_id, Reminder.schedule_type, Reminder.reminder_at, Reminder.push_notification, Reminder.reminder_title, Reminder.repeat_type, Reminder.reminder_status)).filter(Reminder.reminder_id.in_(reminder_ids)).all()
-    doc_ids = [r.doc_id for r in results]
-    reminders = [{"schedule_type": r.schedule_type, "reminder_at": r.reminder_at, "push_notification": r.push_notification, "reminder_title": r.reminder_title, "repeat_type": r.repeat_type, "reminder_status": r.reminder_status} for r in results]   
-    return {"doc_ids": doc_ids, "reminders": reminders}
+    results = (db.query(Reminder.reminder_id, Reminder.doc_id, Reminder.schedule_type, Reminder.reminder_at, Reminder.push_notification, Reminder.reminder_title, Reminder.repeat_type, Reminder.reminder_status)).filter(Reminder.reminder_id.in_(reminder_ids)).all()
+    reminders = [{"reminder_id": r.reminder_id, "doc_id": r.doc_id, "schedule_type": r.schedule_type, "reminder_at": r.reminder_at, "push_notification": r.push_notification, "reminder_title": r.reminder_title, "repeat_type": r.repeat_type, "reminder_status": r.reminder_status} for r in results]   
+    return reminders
