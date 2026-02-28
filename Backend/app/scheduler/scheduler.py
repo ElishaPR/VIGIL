@@ -1,6 +1,5 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.database import SessionLocal
-from main import app
 from app.services.scheduler_service import check_and_send_notifications
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
@@ -17,7 +16,6 @@ def run_scheduler_job():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
     scheduler.add_job(run_scheduler_job, "interval", seconds=30)
     scheduler.start()
     print("Scheduler started.")
@@ -26,5 +24,3 @@ async def lifespan(app: FastAPI):
 
     scheduler.shutdown()
     print ("Scheduler stopped.")
-
-app = FastAPI(lifespan=lifespan)

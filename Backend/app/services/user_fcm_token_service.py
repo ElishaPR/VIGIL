@@ -9,6 +9,18 @@ def save_user_fcm_token(db: Session, save_fcm_token_data: SaveFCMTokenData, user
     return create_fcm_token(db, token_data)
 
 def send_push_notification(token: str, title: str, body: str, data: dict):
-    message = messaging.Message(notification=messaging.Notification(title=title, body=body,), data={k: str(v) for k, v in data.items()}, token=token)
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title=title,
+            body=body
+        ),
+        data={k: str(v) for k, v in data.items()},
+        token=token,
+        webpush=messaging.WebpushConfig(
+            headers={
+                "TTL": "86400"
+            }
+        )
+    )
     response = messaging.send(message)
     return response    

@@ -44,4 +44,6 @@ def check_and_send_notifications(db: Session):
             try:
                 send_push_notification(token=token, title="Document Reminder", body=f"Your {reminder['reminder_title']} is due", data={"reminder_id": reminder["reminder_id"], "doc_id": reminder["doc_id"], "type": "reminder"})
             except Exception as e:
-                print ("Push failed:", e)     
+                print("Push failed for token:", token)
+                print("Error type:", type(e))
+                print("Error details:", e)     

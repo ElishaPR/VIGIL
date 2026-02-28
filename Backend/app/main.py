@@ -3,12 +3,14 @@ import os
 import app.firebase_config
 from app.routers import users, reminders
 from fastapi.middleware.cors import CORSMiddleware
+from app.scheduler.scheduler import lifespan
 
 app = FastAPI(
     title="Vigil API",
     docs_url=None if os.getenv("ENVIRONMENT") == "production" else "/docs",  # Hide docs in production
     redoc_url=None if os.getenv("ENVIRONMENT") == "production" else "/redoc",  # Also hide ReDoc if used
-    openapi_url=None if os.getenv("ENVIRONMENT") == "production" else "/openapi.json"  # Hide schema
+    openapi_url=None if os.getenv("ENVIRONMENT") == "production" else "/openapi.json",
+    lifespan=lifespan  # Hide schema
 )
 
 app.add_middleware(
