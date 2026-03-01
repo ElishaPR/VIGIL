@@ -1,0 +1,14 @@
+# Virtual environments
+venv/
+Backend/venv/
+Backend/venv_old/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+
+# Firebase key (NEVER PUSH)
+Backend/serviceAccountKey.json

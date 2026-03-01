@@ -26,3 +26,12 @@ def fetch_reminder_details(db: Session, reminder_ids: list):
     results = (db.query(Reminder.reminder_id, Reminder.doc_id, Reminder.schedule_type, Reminder.reminder_at, Reminder.push_notification, Reminder.reminder_title, Reminder.repeat_type, Reminder.reminder_status)).filter(Reminder.reminder_id.in_(reminder_ids)).all()
     reminders = [{"reminder_id": r.reminder_id, "doc_id": r.doc_id, "schedule_type": r.schedule_type, "reminder_at": r.reminder_at, "push_notification": r.push_notification, "reminder_title": r.reminder_title, "repeat_type": r.repeat_type, "reminder_status": r.reminder_status} for r in results]   
     return reminders
+
+def mark_reminder_as_sent(db: Session, reminder_id: int):
+    db.query(Reminder).filter(
+        Reminder.reminder_id == reminder_id
+    ).update(
+        {Reminder.reminder_status: "SENT"},
+        synchronize_session=False
+    )
+    db.commit()

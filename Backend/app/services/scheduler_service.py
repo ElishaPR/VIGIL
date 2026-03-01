@@ -1,10 +1,11 @@
 from sqlalchemy.orm import Session
-from app.crud.reminders import get_not_sent_reminder_ids, mark_reminders_as_processing, fetch_reminder_details
+from app.crud.reminders import get_not_sent_reminder_ids, mark_reminders_as_processing, fetch_reminder_details, mark_reminder_as_sent
 from app.crud.documents import fetch_document_details
 from app.crud.users import fetch_user_details
 from app.crud.user_fcm_tokens import fetch_fcm_tokens
 from app.services.user_fcm_token_service import send_push_notification
 from collections import defaultdict
+from app.services.email_service import send_email
 
 def check_and_send_notifications(db: Session):
     reminder_ids = list(get_not_sent_reminder_ids(db))
@@ -23,6 +24,10 @@ def check_and_send_notifications(db: Session):
     doc_to_user = {doc["doc_id"]: doc["user_id"] for doc in documents}
 
     user_ids = list(set(doc_to_user.values()))
+
+    users = fetch_user_details(db, user_ids)
+
+    user_email_map = {u[0]: u[1] for u in users}
     
     fcm_tokens = fetch_fcm_tokens(db, user_ids)
 
@@ -30,20 +35,47 @@ def check_and_send_notifications(db: Session):
     for item in fcm_tokens:
         user_to_tokens[item["user_id"]].append(item["fcm_token"])
 
-    push_reminders = [r for r in reminders if r["push_notification"] and r["reminder_status"] == "PROCESSING"]
+    for reminder in reminders:
 
-    for reminder in push_reminders:
+        if reminder["reminder_status"] != "PROCESSING":
+            continue
 
         user_id = doc_to_user.get(reminder["doc_id"])
         if not user_id:
             continue
 
-        tokens = user_to_tokens.get(user_id, [])
+        # -------- EMAIL (PRIMARY CHANNEL) --------
+        email_address = user_email_map.get(user_id)
 
-        for token in tokens:
+        if email_address:
             try:
-                send_push_notification(token=token, title="Document Reminder", body=f"Your {reminder['reminder_title']} is due", data={"reminder_id": reminder["reminder_id"], "doc_id": reminder["doc_id"], "type": "reminder"})
+                send_email(
+                    to_email=email_address,
+                    subject="Document Reminder",
+                    html_content=f"<h3>Your {reminder['reminder_title']} is due.</h3>"
+                )
+
+                mark_reminder_as_sent(db, reminder["reminder_id"])
+
             except Exception as e:
-                print("Push failed for token:", token)
-                print("Error type:", type(e))
-                print("Error details:", e)     
+                print("Email failed for:", email_address)
+                print("Error:", e)
+
+        # -------- PUSH (OPTIONAL) --------
+        if reminder.get("push_notification"):
+            tokens = user_to_tokens.get(user_id, [])
+            for token in tokens:
+                try:
+                    send_push_notification(
+                        token=token,
+                        title="Document Reminder",
+                        body=f"Your {reminder['reminder_title']} is due",
+                        data={
+                            "reminder_id": reminder["reminder_id"],
+                            "doc_id": reminder["doc_id"],
+                            "type": "reminder"
+                        }
+                    )
+                except Exception as e:
+                    print("Push failed for token:", token)
+                    print("Error:", e)

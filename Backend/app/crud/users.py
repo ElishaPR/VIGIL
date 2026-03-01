@@ -28,5 +28,5 @@ def authenticate_user(db: Session, user_in: LoginData)->Union[User, None]:
 def fetch_user_details(db: Session, user_ids: list):
     if not user_ids:
         return []
-    users = (db.query(User.email_address, User.display_name)).filter(User.user_id.in_(user_ids)).all()
+    users = (db.query(User.user_id, User.email_address).filter(User.user_id.in_(user_ids)).all())
     return users
