@@ -1,20 +1,11 @@
-<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
   <defs>
-    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1E3A8A;stop-opacity:1" />
+    <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
     </linearGradient>
   </defs>
-
-  <!-- Outer V shape -->
-  <path d="M 40 30 L 100 150 L 160 30 L 140 30 L 100 110 L 60 30 Z" fill="url(#gradient)"/>
-
-  <!-- Inner geometric cut -->
-  <path d="M 70 40 L 100 100 L 130 40 L 115 40 L 100 70 L 85 40 Z" fill="#ffffff"/>
-
-  <!-- Bottom accent -->
-  <rect x="90" y="150" width="20" height="30" rx="2" fill="url(#gradient)"/>
-
-  <!-- Small circle detail -->
-  <circle cx="100" cy="165" r="5" fill="#ffffff"/>
+  <rect width="48" height="48" rx="12" fill="url(#logoGrad)"/>
+  <path d="M14 14L24 34L34 14" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="24" cy="11" r="2.5" fill="white"/>
 </svg>

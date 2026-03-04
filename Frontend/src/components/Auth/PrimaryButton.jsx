@@ -8,12 +8,14 @@ export function PrimaryButton({
   variant = "primary",
   loading = false,
   disabled = false,
-  fullWidth = false,
+  fullWidth = true,
 }) {
+  const base = "flex items-center justify-center gap-2 font-semibold text-sm rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
+
   const styles = {
-    primary: "btn-primary",
-    danger: "bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all",
-    secondary: "btn-secondary",
+    primary: `${base} bg-navy-900 text-white hover:bg-navy-950 active:bg-navy-950 px-6 py-3 shadow-md hover:shadow-lg`,
+    secondary: `${base} bg-white text-navy-900 border-2 border-navy-900 hover:bg-navy-50 px-6 py-3`,
+    danger: `${base} bg-red-600 text-white hover:bg-red-700 px-6 py-3`,
   };
 
   return (
@@ -21,14 +23,12 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
-      className={`${styles[variant]} ${
-        fullWidth ? "w-full" : ""
-      } disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2`}
+      className={`${styles[variant]} ${fullWidth ? "w-full" : ""}`}
     >
       {loading ? (
         <>
           <LoadingSpinner size="sm" />
-          <span>Loading...</span>
+          <span>Please wait...</span>
         </>
       ) : (
         <span>{text}</span>
