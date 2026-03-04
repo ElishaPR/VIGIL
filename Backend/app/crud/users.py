@@ -20,7 +20,9 @@ def get_user_by_email(db: Session, email_address: str)->Union[User, None]:
 def authenticate_user(db: Session, user_in: LoginData)->Union[User, None]:
     user = get_user_by_email(db, user_in.email_address)
     if not user:
-        return None 
+        return None
+    if not user.email_verified:
+        return None
     if not pwd_context.verify(user_in.raw_password, user.hashed_password):
         return None
     return user

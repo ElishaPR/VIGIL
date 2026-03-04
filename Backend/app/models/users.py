@@ -5,7 +5,7 @@ from sqlalchemy.sql import func
 
 class User(Base):
     __tablename__ = "users"
-    
+
     user_id = Column(Integer, primary_key=True, index=True)
     user_uuid = Column(UUID(as_uuid=True), server_default=func.gen_random_uuid(), nullable=False, unique=True)
     email_address = Column(CITEXT, nullable=False, unique=True)
@@ -14,3 +14,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True),nullable=False, server_default=func.now())
     is_india_resident = Column(Boolean, nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    email_verified = Column(Boolean, nullable=False, server_default=func.false())
+    verification_code = Column(String(6))
+    verification_expires_at = Column(DateTime(timezone=True))
+    verification_attempts = Column(Integer, nullable=False, server_default="0")
