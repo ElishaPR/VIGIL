@@ -1,9 +1,13 @@
 import React from "react";
 
-export function AuthCard({children}){
-    return (
-        <div className="w-full max-w-sm h-auto max-h-[90vh] bg-white rounded-lg shadow-lg overflow-y-auto flex flex-col md:w-full md:max-w-sm md:mx-8">
-            {children}
-        </div>
-    );
+export function AuthCard({ children, wide = false }) {
+  return (
+    <div
+      className={`w-full ${
+        wide ? "max-w-5xl" : "max-w-md"
+      } bg-white rounded-2xl shadow-2xl overflow-hidden`}
+    >
+      {children}
+    </div>
+  );
 }

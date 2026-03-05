@@ -1,26 +1,47 @@
 import React from "react";
 
 export function FormInput({
-    label,
-    id,
-    type = "text",
-    placeholder,
-    helperText,
-    value,
-    onChangeValue
+  label,
+  id,
+  type = "text",
+  placeholder,
+  helperText,
+  error,
+  value,
+  onChangeValue,
+  onBlur,
+  required = false,
+  maxLength,
 }) {
-    return (
-        <div className="flex flex-col space-y-2 mb-6 w-full">
-            <label htmlFor={id} className="text-black text-base font-medium text-left md:text-lg">
-                {label}
-            </label>
-            <div className="w-full max-w-[300px]">
-                <input type={type} id={id} placeholder={placeholder} className="w-full border-2 border-gray-500 rounded shadow-md p-2 text-base font-normal " value={value} onChange={(e) => { onChangeValue(e.target.value) }} />
-                {helperText && (<p className="text-left text-sm font-medium mt-1">
-                    {helperText}
-                </p>)}
-            </div>
+  return (
+    <div className="flex flex-col gap-1.5 w-full">
+      <label htmlFor={id} className="text-sm font-medium text-gray-700">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <input
+        type={type}
+        id={id}
+        placeholder={placeholder}
+        className={`input-field ${error ? "input-error" : ""}`}
+        value={value}
+        onChange={(e) => onChangeValue(e.target.value)}
+        onBlur={onBlur}
+        required={required}
+        maxLength={maxLength}
+        autoComplete={type === "password" ? "new-password" : "off"}
+      />
+      {error && (
+        <div className="flex items-start gap-1.5">
+          <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-red-600 text-sm">{error}</p>
         </div>
-    );
-
+      )}
+      {helperText && !error && (
+        <p className="text-gray-400 text-xs">{helperText}</p>
+      )}
+    </div>
+  );
 }
