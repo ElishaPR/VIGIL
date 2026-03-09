@@ -12,5 +12,5 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     display_name = Column(String(50), nullable=False)
     created_at = Column(DateTime(timezone=True),nullable=False, server_default=func.now())
-    is_india_resident = Column(Boolean, nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    email_verified = Column(Boolean, nullable=False, server_default=func.false())

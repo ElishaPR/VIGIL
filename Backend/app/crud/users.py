@@ -1,32 +1,44 @@
 from typing import Union
-from app.models.users import User
 from sqlalchemy.orm import Session
+
+from app.models.users import User
 from app.schemas.users import SignUpData, LoginData
-from app.core.security import pwd_context, password_hashing
-  
-def create_user(db: Session, user_in: SignUpData)->User:
+from app.core.security import password_hashing, verify_password
+
+
+def create_user(db: Session, user_in: SignUpData) -> User:
+
     final_hashed_password = password_hashing(user_in.raw_password)
-    db_user = User(email_address = user_in.email_address, display_name = user_in.display_name, hashed_password = final_hashed_password, is_india_resident = user_in.is_india_resident)
+
+    db_user = User(
+        email_address=user_in.email_address,
+        display_name=user_in.display_name,
+        hashed_password=final_hashed_password,
+    )
+
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    db.flush()
+
     return db_user
 
-def get_user_by_email(db: Session, email_address: str)->Union[User, None]:
-    email_exists = db.query(User).filter(User.email_address == email_address).first()
-    return email_exists
+
+def get_user_by_email(db: Session, email_address: str) -> Union[User, None]:
+
+    return (
+        db.query(User)
+        .filter(User.email_address == email_address)
+        .first()
+    )
 
 
-def authenticate_user(db: Session, user_in: LoginData)->Union[User, None]:
+def authenticate_user(db: Session, user_in: LoginData) -> Union[User, None]:
+
     user = get_user_by_email(db, user_in.email_address)
-    if not user:
-        return None 
-    if not pwd_context.verify(user_in.raw_password, user.hashed_password):
-        return None
-    return user
 
-def fetch_user_details(db: Session, user_ids: list):
-    if not user_ids:
-        return []
-    users = (db.query(User.user_id, User.email_address).filter(User.user_id.in_(user_ids)).all())
-    return users
+    if not user:
+        return None
+
+    if not verify_password(user_in.raw_password, user.hashed_password):
+        return None
+
+    return user

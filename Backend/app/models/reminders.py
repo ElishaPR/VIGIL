@@ -1,5 +1,5 @@
 from app.database import Base
-from sqlalchemy import Column, String, Boolean, Integer, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, ForeignKey, Text, UniqueConstraint, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func 
 
@@ -7,10 +7,16 @@ class Reminder(Base):
     __tablename__ = "reminders"
 
     reminder_id = Column(Integer, primary_key=True, index=True)
-    doc_id = Column(Integer, ForeignKey("documents.doc_id"), nullable=False)
+    doc_id = Column(Integer, ForeignKey("documents.doc_id", ondelete="CASCADE"), nullable=False)
+    
     __table_args__ = (
-        UniqueConstraint("doc_id", name="reminders_doc_id_key"),
-        )
+    UniqueConstraint("doc_id", name="reminders_doc_id_key"),
+    CheckConstraint(
+        "(email_notification = TRUE OR push_notification = TRUE)",
+        name="check_notification_required"
+    ),
+    )
+
     schedule_type = Column(String(15), nullable=False)
     reminder_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True),nullable=False, server_default=func.now())

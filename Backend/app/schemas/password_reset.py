@@ -1,0 +1,28 @@
+from pydantic import BaseModel, EmailStr, Field
+
+
+class ForgotPasswordData(BaseModel):
+    email_address: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str = "If the email exists, a reset code has been sent."
+
+
+class VerifyResetOTPData(BaseModel):
+    email_address: EmailStr
+    otp: str = Field(min_length=6, max_length=6)
+
+
+class VerifyResetOTPResponse(BaseModel):
+    message: str = "OTP verified."
+
+
+class ResetPasswordData(BaseModel):
+    email_address: EmailStr
+    otp: str = Field(min_length=6, max_length=6)
+    new_password: str = Field(min_length=8, max_length=64)
+
+
+class ResetPasswordResponse(BaseModel):
+    message: str = "Password reset successful."
