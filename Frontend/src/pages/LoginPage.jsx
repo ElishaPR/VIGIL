@@ -7,7 +7,7 @@ import { PrimaryButton } from "../components/Auth/PrimaryButton";
 import { AuthFooter } from "../components/Auth/AuthFooter";
 import { validateEmail, validatePassword } from "../utils/validators";
 
-export function LoginPage() {
+export function LoginPage({ setIsAuthenticated }) {
   const navigate = useNavigate();
   const [userEmailAddress, setUserEmailAddress] = useState("");
   const [userPassword, setUserPassword] = useState("");
@@ -64,6 +64,7 @@ export function LoginPage() {
       const result = await response.json();
 
       if (response.ok) {
+        setIsAuthenticated(true);
         navigate("/dashboard");
       } else if (response.status === 403) {
         // Email not verified
@@ -72,7 +73,7 @@ export function LoginPage() {
         updateError("api", result.detail || result.message || "Login failed. Please try again.");
       }
     } catch {
-      updateError("api", "Unable to connect to the server. Please try again later.");
+      updateError("api", "Server not connected. Try again...");
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,7 @@ export function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="flex bg-white rounded-2xl shadow-xl overflow-hidden min-h-[480px] max-w-4xl mx-auto animate-fade-in">
+      <div className="flex bg-white rounded-2xl shadow-xl overflow-hidden min-h-screen lg:min-h-[600px] max-w-5xl mx-auto animate-fade-in">
         {/* Left brand panel */}
         <AuthBrandPanel
           title="Welcome Back"
@@ -88,7 +89,7 @@ export function LoginPage() {
         />
 
         {/* Right form panel */}
-        <div className="flex-1 flex flex-col justify-center p-6 sm:p-8 lg:p-10">
+        <div className="flex-1 flex flex-col justify-center p-6 sm:p-8 lg:p-12">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2.5 mb-6">
             <img src="/vigil-logo.svg" alt="Vigil" className="h-8 w-8" />
@@ -96,8 +97,8 @@ export function LoginPage() {
           </div>
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Log in to your account</h1>
-            <p className="text-sm text-gray-500 mt-1">Enter your credentials to continue.</p>
+            <h1 className="text-2xl font-bold text-gray-900 md:text-3xl lg:text-4xl">Log in to your account</h1>
+            <p className="text-sm text-gray-500 mt-2 md:text-base lg:text-lg">Enter your credentials to continue.</p>
           </div>
 
           {/* API error */}
@@ -184,6 +185,16 @@ export function LoginPage() {
                 disabled={loading}
                 fullWidth
               />
+            </div>
+
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                className="text-sm text-navy-700 font-semibold hover:text-navy-900 transition-colors"
+              >
+                Forgot your password?
+              </button>
             </div>
 
             <AuthFooter

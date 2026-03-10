@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // Placeholder data for UI shell
 const sampleReminders = [
@@ -26,10 +26,10 @@ function StatCard({ label, count, icon, colorClasses }) {
   return (
     <div className={`rounded-xl border p-5 ${colorClasses}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium opacity-80">{label}</span>
+        <span className="text-sm font-medium opacity-80 md:text-base">{label}</span>
         {icon}
       </div>
-      <p className="text-3xl font-bold">{count}</p>
+      <p className="text-3xl font-bold md:text-4xl lg:text-5xl">{count}</p>
     </div>
   );
 }
@@ -58,9 +58,11 @@ function ReminderRow({ reminder }) {
   );
 }
 
-export function DashboardPage() {
+export function DashboardPage({ setIsAuthenticated }) {
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("all");
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const expiredCount = sampleReminders.filter((r) => r.status === "expired").length;
   const expiringCount = sampleReminders.filter((r) => r.status === "expiring").length;
@@ -138,11 +140,46 @@ export function DashboardPage() {
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
-          <h1 className="text-lg font-semibold text-gray-900 hidden lg:block">Dashboard</h1>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-navy-100 text-navy-700 rounded-full flex items-center justify-center font-semibold text-sm">
+          <h1 className="text-xl font-semibold text-gray-900 hidden lg:block md:text-2xl">Dashboard</h1>
+          <div className="flex items-center gap-3 relative">
+            <button
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+              className="w-9 h-9 bg-navy-100 text-navy-700 rounded-full flex items-center justify-center font-semibold text-sm hover:bg-navy-200 transition-colors"
+            >
               U
-            </div>
+            </button>
+
+            {profileMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)}></div>
+                <div className="absolute right-0 top-12 bg-white rounded-lg shadow-lg border border-gray-200 w-48 z-50">
+                  <Link
+                    to="/profile"
+                    className="block px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100 text-sm md:text-base"
+                  >
+                    My Profile
+                  </Link>
+                  <button
+                    onClick={async () => {
+                      setProfileMenuOpen(false);
+                      try {
+                        await fetch("http://localhost:8000/users/logout", {
+                          method: "POST",
+                          credentials: "include",
+                        });
+                      } catch {
+                        console.error("Logout error");
+                      }
+                      setIsAuthenticated(false);
+                      navigate("/");
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-red-700 hover:bg-red-50 transition-colors text-sm md:text-base font-medium"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </header>
 
@@ -173,10 +210,10 @@ export function DashboardPage() {
           {/* Document list */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-gray-900 md:text-2xl lg:text-3xl">
                 {activeFilter === "all" ? "All Documents" : statusConfig[activeFilter]?.label || "Documents"}
               </h2>
-              <span className="text-sm text-gray-500">{filtered.length} document{filtered.length !== 1 ? "s" : ""}</span>
+              <span className="text-sm text-gray-500 md:text-base">{filtered.length} document{filtered.length !== 1 ? "s" : ""}</span>
             </div>
 
             {filtered.length === 0 ? (

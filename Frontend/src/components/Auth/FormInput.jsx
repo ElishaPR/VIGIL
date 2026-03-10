@@ -15,7 +15,7 @@ export function FormInput({
 }) {
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      <label htmlFor={id} className="text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="text-sm font-medium text-gray-700 md:text-base lg:text-lg">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
@@ -23,7 +23,7 @@ export function FormInput({
         type={type}
         id={id}
         placeholder={placeholder}
-        className={`input-field ${error ? "input-error" : ""}`}
+        className={`input-field text-base md:text-lg lg:text-lg ${error ? "input-error" : ""}`}
         value={value}
         onChange={(e) => onChangeValue(e.target.value)}
         onBlur={onBlur}
@@ -36,11 +36,11 @@ export function FormInput({
           <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-red-600 text-sm">{error}</p>
+          <p className="text-red-600 text-sm md:text-base">{error}</p>
         </div>
       )}
       {helperText && !error && (
-        <p className="text-gray-400 text-xs">{helperText}</p>
+        <p className="text-gray-400 text-xs md:text-sm">{helperText}</p>
       )}
     </div>
   );

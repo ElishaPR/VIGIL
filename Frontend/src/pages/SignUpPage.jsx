@@ -104,7 +104,7 @@ export function SignUpPage() {
         updateError("api", result.detail || result.message || "Signup failed. Please try again.");
       }
     } catch {
-      updateError("api", "Unable to connect to the server. Please try again later.");
+      updateError("api", "Server not connected. Try again...");
     } finally {
       setLoading(false);
     }
@@ -112,7 +112,7 @@ export function SignUpPage() {
 
   return (
     <AuthLayout>
-      <div className="flex bg-white rounded-2xl shadow-xl overflow-hidden min-h-[600px] animate-fade-in">
+      <div className="flex bg-white rounded-2xl shadow-xl overflow-hidden min-h-screen lg:min-h-[700px] max-w-5xl mx-auto animate-fade-in">
         {/* Left brand panel */}
         <AuthBrandPanel
           title="Keep Your Documents in Check"
@@ -120,7 +120,7 @@ export function SignUpPage() {
         />
 
         {/* Right form panel */}
-        <div className="flex-1 flex flex-col p-6 sm:p-8 lg:p-10 overflow-y-auto">
+        <div className="flex-1 flex flex-col p-6 sm:p-8 lg:p-12 overflow-y-auto">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2.5 mb-6">
             <img src="/vigil-logo.svg" alt="Vigil" className="h-8 w-8" />
@@ -128,8 +128,8 @@ export function SignUpPage() {
           </div>
 
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
-            <p className="text-sm text-gray-500 mt-1">Get started with Vigil in a few steps.</p>
+            <h1 className="text-2xl font-bold text-gray-900 md:text-3xl lg:text-4xl">Create your account</h1>
+            <p className="text-sm text-gray-500 mt-2 md:text-base lg:text-lg">Get started with Vigil in a few steps.</p>
           </div>
 
           {/* API error */}

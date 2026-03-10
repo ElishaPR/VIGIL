@@ -114,12 +114,25 @@
   padding: 0.75rem 1rem;
   border: 1.5px solid var(--color-gray-300);
   border-radius: var(--radius-lg);
-  font-size: 0.9375rem;
-  line-height: 1.5;
+  font-size: 1rem;
+  line-height: 1.6;
   color: var(--color-gray-800);
   background-color: var(--color-white);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   font-family: inherit;
+}
+
+@media (min-width: 768px) {
+  .input-field {
+    font-size: 1.125rem;
+    padding: 0.875rem 1.125rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .input-field {
+    font-size: 1.125rem;
+  }
 }
 
 .input-field::placeholder {
