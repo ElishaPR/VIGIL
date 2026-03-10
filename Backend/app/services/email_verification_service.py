@@ -59,7 +59,7 @@ def send_verification_email(to_email: str, display_name: str, otp: str):
     payload = {
         "sender": {
             "name": "VIGIL",
-            "email": "no-reply@vigil.app"
+            "email": os.getenv("SENDER_EMAIL")
         },
         "to": [
             {

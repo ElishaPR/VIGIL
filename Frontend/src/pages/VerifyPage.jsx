@@ -5,7 +5,7 @@ import { PrimaryButton } from "../components/Auth/PrimaryButton";
 
 const OTP_LENGTH = 6;
 
-export function VerifyPage() {
+export function VerifyPage({ setIsAuthenticated }) {
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email || "";
@@ -104,14 +104,12 @@ export function VerifyPage() {
       const result = await response.json();
 
       if (response.ok) {
-        navigate("/login", {
-          state: { verified: true },
-        });
+        navigate("/login");
       } else {
         setError(result.detail || result.message || "Verification failed. Please try again.");
       }
     } catch {
-      setError("Unable to connect to the server. Please try again later.");
+      setError("Server not connected. Try again...");
     } finally {
       setLoading(false);
     }
@@ -141,7 +139,7 @@ export function VerifyPage() {
         setError(result.detail || result.message || "Failed to resend code.");
       }
     } catch {
-      setError("Unable to connect to the server. Please try again later.");
+      setError("Server not connected. Try again...");
     } finally {
       setResendLoading(false);
     }
@@ -151,7 +149,7 @@ export function VerifyPage() {
 
   return (
     <AuthLayout>
-      <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8 animate-fade-in">
+      <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8 lg:p-10 animate-fade-in">
         {/* Icon */}
         <div className="flex justify-center mb-6">
           <div className="w-16 h-16 bg-navy-50 rounded-2xl flex items-center justify-center">
@@ -162,11 +160,11 @@ export function VerifyPage() {
         </div>
 
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Verify Your Email</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2 md:text-3xl lg:text-3xl">Verify Your Email</h1>
+          <p className="text-sm text-gray-500 md:text-base lg:text-lg">
             We sent a 6-digit verification code to
           </p>
-          <p className="text-sm font-semibold text-navy-700 mt-1">{email}</p>
+          <p className="text-sm font-semibold text-navy-700 mt-1 md:text-base lg:text-lg">{email}</p>
         </div>
 
         {/* Error */}

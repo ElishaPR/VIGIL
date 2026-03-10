@@ -8,9 +8,7 @@ from app.schemas.users import (
     SignUpData,
     SignUpUserResponse,
     LoginData,
-    LoginUserResponse,
-    SaveFCMTokenData,
-    SaveFCMTokenResponse
+    LoginUserResponse
 )
 
 from app.crud.users import create_user, authenticate_user
@@ -26,7 +24,7 @@ from app.core.security import (
     get_current_user_payload
 )
 
-from app.services.user_fcm_token_service import save_user_fcm_token
+
 from app.services.email_verification_service import send_verification_email
 
 
@@ -125,10 +123,39 @@ def login(
     user = authenticate_user(db, login_data)
 
     if not user:
-
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password."
+        )
+
+    if not user.email_verified:
+
+        try:
+
+            invalidate_previous_otps(db, user.user_id)
+
+            otp_record, otp = create_email_verification_otp(
+                db,
+                user.user_id
+            )
+
+            db.commit()
+
+            send_verification_email(
+                user.email_address,
+                user.display_name,
+                otp
+            )
+
+        except Exception:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send verification email."
+            )
+
+        raise HTTPException(
+            status_code=403,
+            detail="Email not verified. Verification code sent."
         )
 
     access_token = create_access_token({
@@ -168,20 +195,42 @@ def logout(response: Response):
         "message": "Logged out successfully."
     }
 
-
-@router.post("/save-fcm-token", response_model=SaveFCMTokenResponse)
-def save_fcm_token(
-        save_fcm_token_data: SaveFCMTokenData,
-        db: Session = Depends(get_db),
-        token_data: dict = Depends(get_current_user_payload)
+@router.get("/me")
+def get_current_user(
+    token_data: dict = Depends(get_current_user_payload),
+    db: Session = Depends(get_db)
 ):
 
-    user_id = token_data["user_id"]
+    user = db.query(User).filter(
+        User.user_id == token_data["user_id"]
+    ).first()
 
-    save_user_fcm_token(
-        db,
-        save_fcm_token_data,
-        user_id
-    )
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found."
+        )
 
-    return SaveFCMTokenResponse()
+    return {
+        "user_uuid": str(user.user_uuid),
+        "display_name": user.display_name,
+        "email_address": user.email_address
+    }
+
+
+# @router.post("/save-fcm-token", response_model=SaveFCMTokenResponse)
+# def save_fcm_token(
+#         save_fcm_token_data: SaveFCMTokenData,
+#         db: Session = Depends(get_db),
+#         token_data: dict = Depends(get_current_user_payload)
+# ):
+
+#     user_id = token_data["user_id"]
+
+#     save_user_fcm_token(
+#         db,
+#         save_fcm_token_data,
+#         user_id
+#     )
+
+#     return SaveFCMTokenResponse()

@@ -88,13 +88,13 @@ class LoginUserResponse(BaseModel):
     message: str = "Login successful."
 
 
-class SaveFCMTokenData(BaseModel):
+# class SaveFCMTokenData(BaseModel):
 
-    fcm_token: str
+#     fcm_token: str
 
 
-class SaveFCMTokenResponse(BaseModel):
+# class SaveFCMTokenResponse(BaseModel):
 
-    model_config = ConfigDict(from_attributes=True)
+#     model_config = ConfigDict(from_attributes=True)
 
-    message: str = "Push Notification details saved successfully."
+#     message: str = "Push Notification details saved successfully."

@@ -1,6 +1,6 @@
-from pydantic import BaseModel
-from datetime import date
+# from pydantic import BaseModel
+# from datetime import date
 
-class DocumentData(BaseModel):
-    doc_category: str
-    expiry_date: date
+# class DocumentData(BaseModel):
+#     doc_category: str
+#     expiry_date: date
