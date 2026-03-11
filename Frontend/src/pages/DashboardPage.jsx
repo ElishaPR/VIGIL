@@ -60,6 +60,19 @@ function ReminderRow({ reminder }) {
 
 export function DashboardPage({ setIsAuthenticated }) {
   const navigate = useNavigate();
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:8000/users/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      console.error("Logout failed");
+    }
+
+    setIsAuthenticated(false);
+    navigate("/login");
+  };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("all");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -160,18 +173,9 @@ export function DashboardPage({ setIsAuthenticated }) {
                     My Profile
                   </Link>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       setProfileMenuOpen(false);
-                      try {
-                        await fetch("http://localhost:8000/users/logout", {
-                          method: "POST",
-                          credentials: "include",
-                        });
-                      } catch {
-                        console.error("Logout error");
-                      }
-                      setIsAuthenticated(false);
-                      navigate("/");
+                      handleLogout();
                     }}
                     className="w-full text-left px-4 py-2.5 text-red-700 hover:bg-red-50 transition-colors text-sm md:text-base font-medium"
                   >

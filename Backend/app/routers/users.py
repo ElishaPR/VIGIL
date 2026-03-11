@@ -4,11 +4,15 @@ from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 
+from app.models.users import User
+
 from app.schemas.users import (
     SignUpData,
     SignUpUserResponse,
     LoginData,
-    LoginUserResponse
+    LoginUserResponse,
+    UpdateProfileData,
+    UpdateProfileResponse
 )
 
 from app.crud.users import create_user, authenticate_user
@@ -128,6 +132,22 @@ def login(
             detail="Invalid email or password."
         )
 
+    access_token = create_access_token({
+        "user_id": user.user_id,
+        "user_uuid": str(user.user_uuid),
+        "email": user.email_address,
+        "type": "access"
+    })
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_SECONDS
+    )
+
     if not user.email_verified:
 
         try:
@@ -153,33 +173,19 @@ def login(
                 detail="Failed to send verification email."
             )
 
-        raise HTTPException(
-            status_code=403,
-            detail="Email not verified. Verification code sent."
+        response.status_code = 403
+
+        return LoginUserResponse(
+            access_token="",
+            user_uuid=str(user.user_uuid),
+            display_name=user.display_name
         )
-
-    access_token = create_access_token({
-        "user_id": user.user_id,
-        "user_uuid": str(user.user_uuid),
-        "email": user.email_address,
-        "type": "access"
-    })
-
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=False,
-        samesite="lax",
-        max_age=ACCESS_TOKEN_EXPIRE_SECONDS
-    )
-
+    
     return LoginUserResponse(
-        access_token="",
+        access_token=access_token,
         user_uuid=str(user.user_uuid),
         display_name=user.display_name
     )
-
 
 @router.post("/logout", status_code=200)
 def logout(response: Response):
@@ -195,7 +201,7 @@ def logout(response: Response):
         "message": "Logged out successfully."
     }
 
-@router.get("/me")
+@router.get("/me", response_model=UpdateProfileResponse)
 def get_current_user(
     token_data: dict = Depends(get_current_user_payload),
     db: Session = Depends(get_db)
@@ -215,6 +221,28 @@ def get_current_user(
         "user_uuid": str(user.user_uuid),
         "display_name": user.display_name,
         "email_address": user.email_address
+    }
+
+@router.put("/me")
+def update_profile(
+    data: UpdateProfileData,
+    token_data: dict = Depends(get_current_user_payload),
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(User).filter(
+        User.user_id == token_data["user_id"]
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.display_name = data.display_name
+
+    db.commit()
+
+    return {
+        "message": "Profile updated successfully"
     }
 
 

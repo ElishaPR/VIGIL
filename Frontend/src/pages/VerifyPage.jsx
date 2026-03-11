@@ -4,6 +4,7 @@ import { AuthLayout } from "../components/Auth/AuthLayout";
 import { PrimaryButton } from "../components/Auth/PrimaryButton";
 
 const OTP_LENGTH = 6;
+const MAX_ATTEMPTS = 5;
 
 export function VerifyPage({ setIsAuthenticated }) {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export function VerifyPage({ setIsAuthenticated }) {
 
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(""));
   const [error, setError] = useState("");
+  const [attempts, setAttempts] = useState(0);
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
@@ -31,6 +33,12 @@ export function VerifyPage({ setIsAuthenticated }) {
     const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCooldown]);
+
+  useEffect(() => {
+    if (otp.join("").length === OTP_LENGTH) {
+      handleVerify();
+    }
+  }, [otp]);
 
   const focusInput = (index) => {
     if (inputRefs.current[index]) {
@@ -81,7 +89,13 @@ export function VerifyPage({ setIsAuthenticated }) {
   };
 
   const handleVerify = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+
+    if (attempts >= MAX_ATTEMPTS) {
+      setError("Too many attempts. Please request a new OTP.");
+      return;
+    }
+
     const code = otp.join("");
 
     if (code.length !== OTP_LENGTH) {
@@ -93,20 +107,30 @@ export function VerifyPage({ setIsAuthenticated }) {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/users/verify-email", {
+      const response = await fetch("http://localhost:8000/email-verification/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
-          email_address: email,
-          verification_code: code,
+          otp: code,
         }),
       });
+
       const result = await response.json();
 
       if (response.ok) {
-        navigate("/login");
+        setIsAuthenticated(true);
+        navigate("/dashboard");
       } else {
-        setError(result.detail || result.message || "Verification failed. Please try again.");
+        setAttempts((prev) => prev + 1);
+
+        const remaining = MAX_ATTEMPTS - (attempts + 1);
+
+        if (remaining <= 0) {
+          setError("Maximum OTP attempts reached.");
+        } else {
+          setError(`Invalid code. Attempts left: ${remaining}`);
+        }
       }
     } catch {
       setError("Server not connected. Try again...");
@@ -123,16 +147,16 @@ export function VerifyPage({ setIsAuthenticated }) {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8000/users/resend-verification", {
+      const response = await fetch("http://localhost:8000/email-verification/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_address: email }),
+        credentials: "include"
       });
       const result = await response.json();
 
       if (response.ok) {
         setResendMessage("A new code has been sent to your email.");
         setOtp(Array(OTP_LENGTH).fill(""));
+        setAttempts(0);
         setResendCooldown(60);
         focusInput(0);
       } else {

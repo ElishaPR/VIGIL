@@ -49,7 +49,7 @@ def send_password_reset_email(to_email: str, display_name: str, otp: str):
     payload = {
         "sender": {
             "name": "VIGIL",
-            "email": "no-reply@vigil.app"
+            "email": os.getenv("SENDER_EMAIL")
         },
         "to": [{
             "email": to_email,
@@ -59,7 +59,7 @@ def send_password_reset_email(to_email: str, display_name: str, otp: str):
         "htmlContent": html_content
     }
 
-    response = requests.post(BREVO_URL, json=payload, headers=headers)
+    response = requests.post(BREVO_URL, json=payload, headers=headers, timeout=10)
 
     if response.status_code >= 400:
         raise RuntimeError("Failed to send password reset email.")

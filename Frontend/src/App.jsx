@@ -48,25 +48,31 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+
     const checkAuth = async () => {
+
       try {
-        const response = await fetch("http://localhost:8000/users/me", {
-          credentials: "include",
-        });
+
+        const response = await fetch(
+          "http://localhost:8000/users/me",
+          { credentials: "include" }
+        );
 
         if (response.ok) {
           setIsAuthenticated(true);
         } else {
           setIsAuthenticated(false);
         }
+
       } catch {
         setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
       }
+
+      setIsLoading(false);
     };
 
     checkAuth();
+
   }, []);
 
   useEffect(() => {

@@ -42,23 +42,24 @@ def forgot_password(data: ForgotPasswordData, db: Session = Depends(get_db)):
 
     try:
 
-        with db.begin():
 
-            invalidate_previous_reset_otps(db, user.user_id)
+        invalidate_previous_reset_otps(db, user.user_id)
 
-            otp_record, otp = create_password_reset_otp(
-                db,
-                user.user_id
-            )
+        otp_record, otp = create_password_reset_otp(
+            db,
+            user.user_id
+        )
 
+        db.commit() 
+        
         send_password_reset_email(
             user.email_address,
             user.display_name,
             otp
         )
 
-    except Exception:
-        pass
+    except Exception as e:
+        print("Password reset email error:", e)
 
     return ForgotPasswordResponse()
 
@@ -117,11 +118,11 @@ def reset_password(data: ResetPasswordData, db: Session = Depends(get_db)):
 
     try:
 
-        with db.begin():
+        user.hashed_password = password_hashing(data.new_password)
 
-            user.hashed_password = password_hashing(data.new_password)
+        otp_record.is_used = True
 
-            otp_record.is_used = True
+        db.commit()
 
     except Exception:
         db.rollback()

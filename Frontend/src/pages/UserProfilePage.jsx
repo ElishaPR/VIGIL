@@ -24,7 +24,7 @@ export function UserProfilePage() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await fetch("http://localhost:8000/users/profile", {
+        const response = await fetch("http://localhost:8000/users/me", {
           credentials: "include",
         });
 
@@ -59,7 +59,7 @@ export function UserProfilePage() {
     setSuccessMessage("");
 
     try {
-      const response = await fetch("http://localhost:8000/users/profile", {
+      const response = await fetch("http://localhost:8000/users/me", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

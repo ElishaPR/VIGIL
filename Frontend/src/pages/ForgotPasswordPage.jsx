@@ -35,6 +35,12 @@ export function ForgotPasswordPage() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
+  useEffect(() => {
+    if (otp.join("").length === 6) {
+      handleVerifyOtp(new Event("submit"));
+    }
+  }, [otp]);
+
   const updateError = (field, value) => {
     setErrors((prev) => ({ ...prev, [field]: value }));
   };
@@ -120,7 +126,7 @@ export function ForgotPasswordPage() {
   };
 
   const handleVerifyOtp = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     const code = otp.join("");
 
     if (code.length !== OTP_LENGTH) {
@@ -137,7 +143,7 @@ export function ForgotPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email_address: userEmailAddress,
-          reset_code: code,
+          otp: code,
         }),
       });
       const result = await response.json();
@@ -186,6 +192,7 @@ export function ForgotPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email_address: userEmailAddress,
+          otp: otp.join(""),
           new_password: newPassword,
         }),
       });

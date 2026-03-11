@@ -104,17 +104,17 @@ def verify_email(
 
     if not verify_otp(data.otp, otp_record.otp_hash):
 
-        with db.begin():
-            otp_record.attempts += 1
+        otp_record.attempts += 1
+        db.commit()
 
         raise HTTPException(400, "Invalid verification code.")
 
     try:
 
-        with db.begin():
 
-            otp_record.is_used = True
-            user.email_verified = True
+        otp_record.is_used = True
+        user.email_verified = True
+        db.commit()
 
     except IntegrityError:
         db.rollback()

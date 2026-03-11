@@ -88,6 +88,32 @@ class LoginUserResponse(BaseModel):
     message: str = "Login successful."
 
 
+class UpdateProfileData(BaseModel):
+
+    display_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=50
+    )
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_name(cls, v):
+
+        v = v.strip()
+
+        if not re.match(NAME_REGEX, v):
+            raise ValueError(
+                "Name can contain only letters, spaces, hyphens, apostrophes, and periods."
+            )
+
+        return v
+    
+class UpdateProfileResponse(BaseModel):
+
+    message: str = "Profile updated successfully."
+
+
 # class SaveFCMTokenData(BaseModel):
 
 #     fcm_token: str

@@ -89,6 +89,7 @@ export function SignUpPage() {
       const response = await fetch("http://localhost:8000/users/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           email_address: userEmailAddress,
           display_name: userDisplayName.trim(),
