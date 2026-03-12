@@ -1,5 +1,4 @@
 import uuid
-import os
 
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
@@ -27,7 +26,7 @@ ALLOWED_MIME_TYPES = [
 def validate_file(file: UploadFile):
 
     if file.content_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(status_code=400, detail="Unsupported file type")
+        raise HTTPException(400, "Unsupported file type")
 
 
 def generate_storage_key(user_uuid: str, doc_uuid: str, extension: str):
@@ -40,6 +39,8 @@ def create_document(
         user_id: int,
         user_uuid: str,
         category: str,
+        title: str,
+        expiry_date,
         file: UploadFile
 ):
 
@@ -47,10 +48,12 @@ def create_document(
 
     contents = file.file.read()
 
-    size_mb = len(contents) / (1024 * 1024)
+    size_bytes = len(contents)
+
+    size_mb = size_bytes / (1024 * 1024)
 
     if size_mb > settings.MAX_FILE_SIZE_MB:
-        raise HTTPException(status_code=400, detail="File too large")
+        raise HTTPException(400, "File too large")
 
     doc_uuid = str(uuid.uuid4())
 
@@ -62,20 +65,32 @@ def create_document(
         extension
     )
 
-    encrypted = encrypt_file(contents)
+    encrypted_file = encrypt_file(contents)
 
     upload_file(
         storage_key,
-        encrypted,
+        encrypted_file,
         file.content_type
     )
 
     document = Document(
+
         user_id=user_id,
+
         doc_uuid=doc_uuid,
-        category=category.strip(),
-        storage_key=storage_key,
-        mime_type=file.content_type
+
+        doc_category=category.strip(),
+
+        doc_title=title.strip(),
+
+        doc_size=size_bytes,
+
+        expiry_date=expiry_date,
+
+        mime_type=file.content_type,
+
+        storage_key=storage_key
+
     )
 
     db.add(document)

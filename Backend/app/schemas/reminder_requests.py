@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 
@@ -9,7 +9,7 @@ class AddReminderRequest(BaseModel):
 
     title: str = Field(min_length=3, max_length=100)
 
-    expiry_date: datetime
+    expiry_date: date
 
     schedule_type: str
 

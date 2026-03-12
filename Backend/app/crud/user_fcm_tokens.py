@@ -1,11 +1,11 @@
 from sqlalchemy.orm import Session
-from app.models.user_fcm_tokens import UserFCMToken
+from app.models.user_fcm_tokens import User_FCM_Token
 
 
 def save_fcm_token(db: Session, user_id: int, token: str):
 
-    existing = db.query(UserFCMToken).filter(
-        UserFCMToken.fcm_token == token
+    existing = db.query(User_FCM_Token).filter(
+        User_FCM_Token.fcm_token == token
     ).first()
 
     if existing:
@@ -14,7 +14,7 @@ def save_fcm_token(db: Session, user_id: int, token: str):
         db.refresh(existing)
         return existing
 
-    token_obj = UserFCMToken(
+    token_obj = User_FCM_Token(
         user_id=user_id,
         fcm_token=token
     )
@@ -28,7 +28,7 @@ def save_fcm_token(db: Session, user_id: int, token: str):
 
 def get_active_tokens(db: Session, user_id: int):
 
-    return db.query(UserFCMToken).filter(
-        UserFCMToken.user_id == user_id,
-        UserFCMToken.is_active == True
+    return db.query(User_FCM_Token).filter(
+        User_FCM_Token.user_id == user_id,
+        User_FCM_Token.is_active == True
     ).all()

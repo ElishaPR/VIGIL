@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 
@@ -9,7 +9,7 @@ class ReminderResponse(BaseModel):
 
     title: str
 
-    expiry_date: datetime
+    expiry_date: date
 
     reminder_at: datetime
 
