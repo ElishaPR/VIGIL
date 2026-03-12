@@ -1,24 +1,24 @@
-# from pydantic import BaseModel, ConfigDict
-# from app.schemas.reminders import ReminderData
-# from app.schemas.documents import DocumentData
+from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Optional
 
-# class CreateReminderData(BaseModel):
-#     reminder: ReminderData
-#     document: DocumentData
 
-# class CreateReminderUserResponse(BaseModel):
-#     model_config = ConfigDict(from_attributes=True)
+class AddReminderRequest(BaseModel):
 
-#     reminder_uuid: str
-#     doc_uuid: str
-#     reminder_title: str
-#     doc_title: str 
-#     doc_category: str
-#     schedule_type: str
-#     expiry_date: str
-#     reminder_at: str
-#     repeat_type: str
-#     push_notification: bool
-#     priority: str
-#     notes: str
-#     message: str = "Reminder created successfully!" 
+    category: str = Field(min_length=1, max_length=50)
+
+    title: str = Field(min_length=3, max_length=100)
+
+    expiry_date: datetime
+
+    schedule_type: str
+
+    reminder_at: Optional[datetime] = None
+
+    repeat_type: str
+
+    priority: str
+
+    enable_push: bool = False
+
+    notes: Optional[str] = Field(default=None, max_length=500)

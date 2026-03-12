@@ -1,6 +1,11 @@
-# from pydantic import BaseModel
-# from datetime import date
+from pydantic import BaseModel
 
-# class DocumentData(BaseModel):
-#     doc_category: str
-#     expiry_date: date
+
+class DocumentResponse(BaseModel):
+
+    doc_uuid: str
+    category: str
+    mime_type: str
+
+    class Config:
+        from_attributes = True

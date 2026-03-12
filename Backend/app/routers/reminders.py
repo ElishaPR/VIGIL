@@ -1,29 +1,64 @@
-# from app.database import get_db
-# from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
-# from sqlalchemy.orm import Session
-# from app.schemas.reminder_requests import CreateReminderData, CreateReminderUserResponse
-# from app.services.document_service import handle_doc_upload
-# from app.services.reminder_service import handle_reminder
-# from app.core.security import get_current_user_payload
-# import json
+from fastapi import APIRouter, Depends, UploadFile, File, Form
+from sqlalchemy.orm import Session
+from datetime import datetime, date
 
-# router = APIRouter(prefix="/reminders", tags=["Reminders"])
+from app.database import get_db
+from app.services.document_service import create_document
+from app.services.reminder_service import create_reminder
+from app.models.users import User
 
-# @router.post("/addreminder", response_model= CreateReminderUserResponse, status_code=201)
-# async def addreminder(
-#     reminder_data: str = Form(...), 
-#     uploaded_doc: UploadFile = File(...), 
-#     db: Session = Depends(get_db), 
-#     token_data: dict = Depends(get_current_user_payload)):
-#     try:
-#         data = json.loads(reminder_data)
-#         reminder_data = CreateReminderData(**data)
-#         user_id = token_data["user_id"]
-#         document = await handle_doc_upload(db, uploaded_doc, reminder_data, user_id)
-#         reminder = handle_reminder(db, reminder_data, document.doc_id)
-#         return CreateReminderUserResponse(reminder_uuid = str(reminder.reminder_uuid), doc_uuid = str(document.doc_uuid), reminder_title = reminder.reminder_title, doc_title = document.doc_title, doc_category = document.doc_category, schedule_type = reminder.schedule_type, expiry_date = str(document.expiry_date), reminder_at = str(reminder.reminder_at), repeat_type = reminder.repeat_type, push_notification = reminder.push_notification, priority = reminder.priority, notes = reminder.notes)
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         print(e)
-#         raise HTTPException(status_code=500, detail="Failed to create reminder!")
+
+router = APIRouter(prefix="/reminders")
+
+
+@router.post("/create")
+
+async def create_reminder_api(
+
+    category: str = Form(...),
+    title: str = Form(...),
+    expiry_date: date = Form(...),
+
+    schedule_type: str = Form(...),
+    reminder_at: datetime | None = Form(None),
+
+    repeat_type: str = Form(...),
+    priority: str = Form(...),
+
+    enable_push: bool = Form(False),
+    notes: str | None = Form(None),
+
+    document: UploadFile = File(...),
+
+    db: Session = Depends(get_db),
+    current_user: User = Depends()
+
+):
+
+    doc = create_document(
+        db,
+        current_user.user_id,
+        current_user.user_uuid,
+        category,
+        title,
+        expiry_date,
+        document
+    )
+
+    reminder = create_reminder(
+        db,
+        doc.doc_id,
+        title,
+        expiry_date,
+        schedule_type,
+        reminder_at,
+        repeat_type,
+        priority,
+        notes,
+        enable_push
+    )
+
+    return {
+        "doc_uuid": doc.doc_uuid,
+        "reminder_uuid": reminder.reminder_uuid
+    }
