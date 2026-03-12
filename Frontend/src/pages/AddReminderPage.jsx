@@ -308,7 +308,10 @@ export function AddReminderPage() {
       formData.append("enable_push", pushNotification);
 
       if (scheduleType === "custom" && reminderAt) {
-        const reminderISO = new Date(reminderAt + "T09:00:00").toISOString();
+        const reminderISO = new Date(reminderAt + "T09:00:00")
+          .toISOString()
+          .replace("Z", "");
+
         formData.append("reminder_at", reminderISO);
       }
 

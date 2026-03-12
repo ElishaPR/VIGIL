@@ -1,81 +1,115 @@
-# from sqlalchemy.orm import Session
-# from app.crud.reminders import get_not_sent_reminder_ids, mark_reminders_as_processing, fetch_reminder_details, mark_reminder_as_sent
-# from app.crud.documents import fetch_document_details
-# from app.crud.users import fetch_user_details
-# from app.crud.user_fcm_tokens import fetch_fcm_tokens
-# from app.services.user_fcm_token_service import send_push_notification
-# from collections import defaultdict
-# from app.services.email_service import send_email
+from sqlalchemy.orm import Session
+from datetime import datetime, timezone
+from collections import defaultdict
 
-# def check_and_send_notifications(db: Session):
-#     reminder_ids = list(get_not_sent_reminder_ids(db))
+from app.models.reminders import Reminder
+from app.models.documents import Document
+from app.models.users import User
+from app.models.user_fcm_tokens import User_FCM_Token
 
-#     if not reminder_ids:
-#         return  
-    
-#     mark_reminders_as_processing(db, reminder_ids)
-    
-#     reminders = fetch_reminder_details(db, reminder_ids)
+from app.services.email_service import send_email
+from app.services.push_notification_service import send_push_notification
 
-#     doc_ids = [r["doc_id"] for r in reminders]
-    
-#     documents = fetch_document_details(db, doc_ids)
 
-#     doc_to_user = {doc["doc_id"]: doc["user_id"] for doc in documents}
+def check_and_send_notifications(db: Session):
 
-#     user_ids = list(set(doc_to_user.values()))
+    now = datetime.now(timezone.utc)
 
-#     users = fetch_user_details(db, user_ids)
+    reminders = db.query(Reminder).filter(
+        Reminder.reminder_at <= now,
+        Reminder.reminder_status == "PENDING"
+    ).all()
 
-#     user_email_map = {u[0]: u[1] for u in users}
-    
-#     fcm_tokens = fetch_fcm_tokens(db, user_ids)
+    if not reminders:
+        return
 
-#     user_to_tokens = defaultdict(list)
-#     for item in fcm_tokens:
-#         user_to_tokens[item["user_id"]].append(item["fcm_token"])
+    reminder_ids = [r.reminder_id for r in reminders]
 
-#     for reminder in reminders:
+    db.query(Reminder).filter(
+        Reminder.reminder_id.in_(reminder_ids)
+    ).update(
+        {"reminder_status": "PROCESSING"},
+        synchronize_session=False
+    )
 
-#         if reminder["reminder_status"] != "PROCESSING":
-#             continue
+    db.commit()
 
-#         user_id = doc_to_user.get(reminder["doc_id"])
-#         if not user_id:
-#             continue
+    doc_ids = list(set([r.doc_id for r in reminders]))
 
-#         # -------- EMAIL (PRIMARY CHANNEL) --------
-#         email_address = user_email_map.get(user_id)
+    documents = db.query(Document).filter(
+        Document.doc_id.in_(doc_ids)
+    ).all()
 
-#         if email_address:
-#             try:
-#                 send_email(
-#                     to_email=email_address,
-#                     subject="Document Reminder",
-#                     html_content=f"<h3>Your {reminder['reminder_title']} is due.</h3>"
-#                 )
+    doc_map = {d.doc_id: d for d in documents}
 
-#                 mark_reminder_as_sent(db, reminder["reminder_id"])
+    user_ids = list(set([d.user_id for d in documents]))
 
-#             except Exception as e:
-#                 print("Email failed for:", email_address)
-#                 print("Error:", e)
+    users = db.query(User).filter(
+        User.user_id.in_(user_ids)
+    ).all()
 
-#         # -------- PUSH (OPTIONAL) --------
-#         if reminder.get("push_notification"):
-#             tokens = user_to_tokens.get(user_id, [])
-#             for token in tokens:
-#                 try:
-#                     send_push_notification(
-#                         token=token,
-#                         title="Document Reminder",
-#                         body=f"Your {reminder['reminder_title']} is due",
-#                         data={
-#                             "reminder_id": reminder["reminder_id"],
-#                             "doc_id": reminder["doc_id"],
-#                             "type": "reminder"
-#                         }
-#                     )
-#                 except Exception as e:
-#                     print("Push failed for token:", token)
-#                     print("Error:", e)
+    user_email_map = {u.user_id: u.email_address for u in users}
+
+    tokens = db.query(User_FCM_Token).filter(
+        User_FCM_Token.user_id.in_(user_ids),
+        User_FCM_Token.is_active == True
+    ).all()
+
+    user_tokens = defaultdict(list)
+
+    for t in tokens:
+        user_tokens[t.user_id].append(t.fcm_token)
+
+    for reminder in reminders:
+
+        doc = doc_map.get(reminder.doc_id)
+
+        if not doc:
+            continue
+
+        user_id = doc.user_id
+
+        email = user_email_map.get(user_id)
+
+        # -------- EMAIL --------
+
+        if reminder.email_notification and email:
+
+            try:
+
+                send_email(
+                    to_email=email,
+                    subject="Vigil Document Reminder",
+                    reminder_title=reminder.reminder_title,
+                    reminder_uuid=str(reminder.reminder_uuid)
+                )
+
+            except Exception as e:
+
+                print("Email failed:", e)
+
+        # -------- PUSH --------
+
+        if reminder.push_notification:
+
+            tokens = user_tokens.get(user_id, [])
+
+            for token in tokens:
+
+                try:
+
+                    send_push_notification(
+                        db=db,
+                        token=token,
+                        title="Vigil Reminder",
+                        body=f"{reminder.reminder_title} is due",
+                        reminder_uuid=str(reminder.reminder_uuid)
+                    )
+
+                except Exception as e:
+
+                    print("Push error:", e)
+
+        reminder.reminder_status = "SENT"
+
+    db.commit()

@@ -1,26 +1,17 @@
 from pydantic import BaseModel
-from datetime import date, datetime
+from datetime import datetime
 from typing import Optional
 
 
 class ReminderResponse(BaseModel):
 
     reminder_uuid: str
-
-    title: str
-
-    expiry_date: date
-
+    reminder_title: str
     reminder_at: datetime
-
     schedule_type: str
-
     repeat_type: str
-
     priority: str
-
-    enable_push: bool
-
+    push_notification: bool
     notes: Optional[str]
 
     class Config:

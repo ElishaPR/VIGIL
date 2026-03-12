@@ -1,11 +1,10 @@
 import uuid
-
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.documents import Document
 from app.services.supabase_service import upload_file
 from app.services.encryption_service import encrypt_file
+from app.crud.documents import create_document as crud_create_document
 from app.core.config import settings
 
 
@@ -34,14 +33,14 @@ def generate_storage_key(user_uuid: str, doc_uuid: str, extension: str):
     return f"documents/{user_uuid}/{doc_uuid}.{extension}"
 
 
-def create_document(
-        db: Session,
-        user_id: int,
-        user_uuid: str,
-        category: str,
-        title: str,
-        expiry_date,
-        file: UploadFile
+def create_document_service(
+    db: Session,
+    user_id: int,
+    user_uuid: str,
+    category: str,
+    title: str,
+    expiry_date,
+    file: UploadFile
 ):
 
     validate_file(file)
@@ -73,28 +72,16 @@ def create_document(
         file.content_type
     )
 
-    document = Document(
-
+    document = crud_create_document(
+        db=db,
         user_id=user_id,
-
         doc_uuid=doc_uuid,
-
-        doc_category=category.strip(),
-
-        doc_title=title.strip(),
-
+        category=category.strip(),
+        title=title.strip(),
         doc_size=size_bytes,
-
         expiry_date=expiry_date,
-
         mime_type=file.content_type,
-
         storage_key=storage_key
-
     )
-
-    db.add(document)
-    db.commit()
-    db.refresh(document)
 
     return document
