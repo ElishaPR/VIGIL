@@ -4,41 +4,38 @@ from firebase_admin import messaging
 from app.crud.user_fcm_tokens import update_push_status
 
 
-def send_push_notification(
-    db,
-    token: str,
-    title: str,
-    body: str,
-    reminder_uuid: str
-):
-
-    message = messaging.Message(
-
-        token=token,
-
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-            image="https://vigil-placeholder.app/logo.png"
-        ),
-
-        data={
-            "reminder_uuid": reminder_uuid,
-            "type": "reminder",
-            "url": f"https://vigil-placeholder.app/reminder/{reminder_uuid}"
-        }
-    )
-
+def send_push_notification(token: str, title: str, body: str, data: dict = None):
     try:
-
-        messaging.send(message)
-
-        update_push_status(db, token, "SUCCESS")
-
-        print("Push sent")
-
-    except Exception as e:
-
-        update_push_status(db, token, "FAILED")
-
-        print("Push failed:", e)
+        print(f"\n=== DEBUG: Sending push to token: {token[:50]}... ===")
+        
+        if not firebase_admin._apps:
+            print("Firebase app not initialized!")
+            return
+        
+        string_data = {}
+        if data:
+            for key, value in data.items():
+                string_data[key] = str(value)
+            
+        message = messaging.Message(
+            notification=messaging.Notification(
+                title=title,
+                body=body,
+            ),
+            data=string_data,
+            token=token,
+            webpush=messaging.WebpushConfig(
+                headers={
+                    "Urgency": "high"
+                }
+            )
+        )
+        
+        response = messaging.send(message)
+        print(f"Push sent successfully! Message ID: {response}")
+        
+    except Exception as e:  
+        print(f"Error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise    

@@ -9,11 +9,11 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/firebase-messaging-sw.js')
-      .then(() => console.log('✅ Service Worker registered'))
-      .catch(err => console.error('❌ Service Worker registration failed', err));
-  });
-}
+// if ('serviceWorker' in navigator) {
+//   window.addEventListener('load', () => {
+//     navigator.serviceWorker
+//       .register('/firebase-messaging-sw.js')
+//       .then(() => console.log('✅ Service Worker registered'))
+//       .catch(err => console.error('❌ Service Worker registration failed', err));
+//   });
+// }

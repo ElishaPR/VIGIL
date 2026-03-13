@@ -99,11 +99,14 @@ def check_and_send_notifications(db: Session):
                 try:
 
                     send_push_notification(
-                        db=db,
                         token=token,
-                        title="Vigil Reminder",
-                        body=f"{reminder.reminder_title} is due",
-                        reminder_uuid=str(reminder.reminder_uuid)
+                        title="Document Reminder",
+                        body=f"Your {reminder.reminder_title} is due",
+                        data={
+                            "reminder_id": reminder.reminder_id,
+                            "doc_id": reminder.doc_id,
+                            "type": "reminder"
+                        }
                     )
 
                 except Exception as e:
