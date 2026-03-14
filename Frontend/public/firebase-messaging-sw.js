@@ -7,23 +7,38 @@ firebase.initializeApp({
     projectId: "vigil-31e47",
     storageBucket: "vigil-31e47.firebasestorage.app",
     messagingSenderId: "975026624658",
-    appId: "975026624658:web:b546002dc7707926c1ae4b"
+    appId: "975026624658:web:b546002dc7707926c1ae4b",
+    measurementId: "G-VDQYBX12MF"
 });
 
-// ← CORRECT METHOD for COMPAT
 const messaging = firebase.messaging();
 
+/* 🔎 DEBUG: check if push reaches the service worker */
+self.addEventListener("push", (event) => {
+  console.log("🔥 Push received in SW:", event);
+});
+
+/* Firebase background handler */
 messaging.onBackgroundMessage(function(payload){
-    console.log("✅ BACKGROUND MESSAGE:", payload);
-    
-    const title = payload.notification?.title || 'Vigil Alert';
-    const options = {
-        body: payload.notification?.body || 'Document expiring!',
-        icon: "/icon.png",
-        badge: "/icon.png",
-        vibrate: [200, 100, 200],
-        data: payload.data
+    console.log("Received background message: ", payload);
+
+    const notificationTitle = payload.notification.title;
+    const notificationOptions = {
+        body: payload.notification.body,
+        icon: "/icon.png"
     };
-    
-    self.registration.showNotification(title, options);
+
+    self.registration.showNotification(notificationTitle, notificationOptions);
+})
+
+self.addEventListener("notificationclick", (event) => {
+
+  event.notification.close();
+
+  const url = event.notification.data?.url || "/dashboard";
+
+  event.waitUntil(
+    clients.openWindow(url)
+  );
+
 });

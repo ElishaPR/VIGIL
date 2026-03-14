@@ -13,7 +13,7 @@ def register_fcm_token(
     token: str
 ):
 
-    if not token or len(token) < 10:
+    if not token or len(token) < 20:
         raise HTTPException(
             status_code=400,
             detail="Invalid FCM token"

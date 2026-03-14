@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { messaging } from "../firebase";
-import { getToken } from "firebase/messaging";
+import { getToken, deleteToken } from "firebase/messaging";
 import { PrimaryButton } from "../components/Auth/PrimaryButton";
 
 // Category options
@@ -305,7 +305,7 @@ export function AddReminderPage() {
       formData.append("schedule_type", scheduleType);
       formData.append("repeat_type", repeatType);
       formData.append("priority", priority);
-      formData.append("enable_push", pushNotification);
+      formData.append("enable_push", pushNotification ? "true" : "false");
 
       if (scheduleType === "custom" && reminderAt) {
         const reminderISO = new Date(reminderAt + "T09:00:00")
@@ -325,6 +325,7 @@ export function AddReminderPage() {
 
       // Handle push notifications
       if (pushNotification) {
+
         let permission = Notification.permission;
 
         if (permission !== "granted") {
@@ -332,31 +333,51 @@ export function AddReminderPage() {
         }
 
         if (permission === "granted") {
-          let registration = await navigator.serviceWorker.getRegistration();
 
-          if (!registration) {
-            registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+          const registration = await navigator.serviceWorker.ready;
+
+          try {
+            // delete old token (important when switching browsers or accounts)
+            await deleteToken(messaging);
+          } catch (err) {
+            console.log("No previous token to delete");
           }
 
           const token = await getToken(messaging, {
             vapidKey: import.meta.env.VITE_FIREBASE_PUBLIC_VAPID_KEY,
-            serviceWorkerRegistration: registration,
+            serviceWorkerRegistration: registration
           });
 
           if (token) {
+
+            console.log("FCM Token:", token);
+
             await fetch("http://localhost:8000/fcm/register", {
               method: "POST",
               credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ fcm_token: token }),
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                fcm_token: token
+              })
             });
+
+          } else {
+
+            console.log("No registration token available");
+
           }
+
         } else {
+
           updateError("api", "Push notification permission denied.");
           setPushNotification(false);
           setLoading(false);
           return;
+
         }
+
       }
 
       const response = await fetch("http://localhost:8000/reminders/create", {

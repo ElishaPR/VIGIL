@@ -75,47 +75,25 @@ function App() {
 
   }, []);
 
-  // Add to your existing auth useEffect (AFTER setIsAuthenticated(true))
-  // TEMP: Force FCM test (ignore auth)
   useEffect(() => {
-    const initFCMTest = async () => {
-      console.log('🔥 FORCE FCM TEST...');
-      
-      // Register SW
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        console.log('✅ SW:', reg.scope);
+
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log("Foreground message received:", payload);
+
+      const title = payload.notification?.title;
+      const body = payload.notification?.body;
+
+      if (Notification.permission === "granted" && title && body) {
+        new Notification(title, {
+          body: body,
+          icon: "/icon.png"
+        });
       }
-      
-      // Request permission
-      if ('Notification' in window) {
-        const perm = await Notification.requestPermission();
-        console.log('Permission:', perm);
-      }
-    };
-    
-    initFCMTest();
+    });
+
+    return () => unsubscribe();
+
   }, []);
-
-  // useEffect(() => {
-
-  //   const unsubscribe = onMessage(messaging, (payload) => {
-  //     console.log("Foreground message received:", payload);
-
-  //     const title = payload.notification?.title;
-  //     const body = payload.notification?.body;
-
-  //     if (Notification.permission === "granted" && title && body) {
-  //       new Notification(title, {
-  //         body: body,
-  //         icon: "/icon.png"
-  //       });
-  //     }
-  //   });
-
-  //   return () => unsubscribe();
-
-  // }, []);
 
   return (
     <BrowserRouter>
