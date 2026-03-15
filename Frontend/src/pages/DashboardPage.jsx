@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 // Category filter options (matching Add Reminder)
@@ -12,15 +12,8 @@ const CATEGORY_FILTERS = [
   { id: "insurance", label: "Insurance", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
 ];
 
-// Placeholder data for UI shell
-const sampleReminders = [
-  { id: 1, title: "Passport", category: "travel", expiryDate: "2026-03-15", priority: "high", status: "expired" },
-  { id: 2, title: "Car Insurance", category: "insurance", expiryDate: "2026-04-02", priority: "high", status: "expiring" },
-  { id: 3, title: "Driving License", category: "vehicle", expiryDate: "2026-05-20", priority: "medium", status: "expiring" },
-  { id: 4, title: "Health Insurance", category: "medical", expiryDate: "2028-01-10", priority: "low", status: "active" },
-  { id: 5, title: "Rent Agreement", category: "housing", expiryDate: "2027-06-30", priority: "medium", status: "active" },
-  { id: 6, title: "Netflix Subscription", category: "bills", expiryDate: "2026-04-15", priority: "low", status: "active" },
-];
+// Empty array - will be populated from API
+const sampleReminders = [];
 
 const statusConfig = {
   expired: { label: "Expired", bg: "bg-red-50", text: "text-red-700", border: "border-red-200", dot: "bg-red-500" },
@@ -111,6 +104,37 @@ export function DashboardPage({ setIsAuthenticated }) {
   const [activePriorityFilter, setActivePriorityFilter] = useState("all");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [reminders, setReminders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch dashboard data on mount
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch("http://localhost:8000/reminders/dashboard", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to load reminders");
+        }
+
+        const data = await response.json();
+        setReminders(data.reminders || []);
+      } catch (err) {
+        console.error("[v0] Dashboard fetch error:", err);
+        setError("Unable to load reminders. Please check your connection or try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -126,12 +150,12 @@ export function DashboardPage({ setIsAuthenticated }) {
     navigate("/login");
   };
 
-  const expiredCount = sampleReminders.filter((r) => r.status === "expired").length;
-  const expiringCount = sampleReminders.filter((r) => r.status === "expiring").length;
-  const activeCount = sampleReminders.filter((r) => r.status === "active").length;
+  const expiredCount = reminders.filter((r) => r.status === "expired").length;
+  const expiringCount = reminders.filter((r) => r.status === "expiring").length;
+  const activeCount = reminders.filter((r) => r.status === "active").length;
 
   // Filter reminders
-  const filtered = sampleReminders.filter((r) => {
+  const filtered = reminders.filter((r) => {
     if (activeStatusFilter !== "all" && r.status !== activeStatusFilter) return false;
     if (activeCategoryFilter !== "all" && r.category !== activeCategoryFilter) return false;
     if (activePriorityFilter !== "all" && r.priority !== activePriorityFilter) return false;
@@ -149,6 +173,17 @@ export function DashboardPage({ setIsAuthenticated }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Page Loading Overlay */}
+      {loading && (
+        <div className="fixed inset-0 z-[100] bg-black/20 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl text-center">
+            <div className="w-12 h-12 rounded-full border-4 border-navy-200 border-t-navy-600 animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-700 font-semibold">Loading dashboard...</p>
+            <p className="text-sm text-gray-500 mt-1">Please wait</p>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar overlay (mobile) */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}></div>
@@ -170,11 +205,11 @@ export function DashboardPage({ setIsAuthenticated }) {
           </button>
         </div>
 
-        {/* Add Reminder Button - Blue as requested */}
+        {/* Add Reminder Button - Navy color matching login/signup */}
         <div className="p-4">
           <Link
             to="/addreminder"
-            className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+            className="flex items-center justify-center gap-2 w-full bg-navy-900 text-white py-3 rounded-xl text-sm font-semibold hover:bg-navy-950 transition-colors shadow-lg shadow-navy-900/20"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -195,7 +230,7 @@ export function DashboardPage({ setIsAuthenticated }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
               </svg>
               All Documents
-              <span className="ml-auto text-xs font-semibold text-gray-400">{sampleReminders.length}</span>
+              <span className="ml-auto text-xs font-semibold text-gray-400">{reminders.length}</span>
             </button>
 
             <button
@@ -236,7 +271,7 @@ export function DashboardPage({ setIsAuthenticated }) {
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">Categories</p>
           <div className="space-y-1 mb-6">
             {CATEGORY_FILTERS.map((category) => {
-              const count = category.id === "all" ? sampleReminders.length : sampleReminders.filter((r) => r.category === category.id).length;
+              const count = category.id === "all" ? reminders.length : reminders.filter((r) => r.category === category.id).length;
               return (
                 <button
                   key={category.id}
@@ -302,10 +337,10 @@ export function DashboardPage({ setIsAuthenticated }) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Mobile Add Button - Blue */}
+            {/* Mobile Add Button - Navy */}
             <Link
               to="/addreminder"
-              className="lg:hidden flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+              className="lg:hidden flex items-center justify-center w-10 h-10 bg-navy-900 text-white rounded-full hover:bg-navy-950 transition-colors shadow-lg shadow-navy-900/20"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -412,8 +447,34 @@ export function DashboardPage({ setIsAuthenticated }) {
 
         {/* Content */}
         <main className="flex-1 p-4 lg:p-8">
+          {/* Loading State */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="w-12 h-12 rounded-full border-4 border-navy-200 border-t-navy-600 animate-spin mb-4"></div>
+              <p className="text-gray-600 font-medium">Loading your reminders...</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !loading && (
+            <div className="mb-8 bg-red-50 border border-red-200 rounded-xl px-6 py-4 flex items-start gap-4">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-red-700 font-medium">{error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-2 text-sm font-medium text-red-600 hover:text-red-700 underline"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Stat cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          {!loading && !error && <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <StatCard
               label="Expired"
               count={expiredCount}
@@ -433,6 +494,7 @@ export function DashboardPage({ setIsAuthenticated }) {
               colorClasses="bg-green-50 border-green-200 text-green-700"
             />
           </div>
+          </div>}
 
           {/* Document list */}
           <div>
@@ -481,7 +543,7 @@ export function DashboardPage({ setIsAuthenticated }) {
                 ) : (
                   <Link
                     to="/addreminder"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-navy-900 text-white rounded-lg font-medium hover:bg-navy-950 transition-colors"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

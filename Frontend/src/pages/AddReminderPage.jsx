@@ -391,6 +391,7 @@ export function AddReminderPage() {
       if (response.ok) {
         setSuccessMessage("Reminder created successfully!");
         setTimeout(() => {
+          setLoading(true); // Show loading before navigating
           navigate("/dashboard");
         }, 1500);
       } else {
@@ -423,13 +424,28 @@ export function AddReminderPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Page Loading Overlay */}
+      {loading && (
+        <div className="fixed inset-0 z-[100] bg-black/20 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl text-center">
+            <div className="w-12 h-12 rounded-full border-4 border-navy-200 border-t-navy-600 animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-700 font-semibold">Saving reminder...</p>
+            <p className="text-sm text-gray-500 mt-1">Please wait</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <button
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={() => {
+                setLoading(true);
+                navigate("/dashboard");
+              }}
+              disabled={loading}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -442,7 +458,7 @@ export function AddReminderPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+      <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28">
         {/* Success Message */}
         {successMessage && (
           <div className="mb-6 bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-start gap-3">
@@ -463,9 +479,9 @@ export function AddReminderPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
           {/* Document Category Section */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+          <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -528,11 +544,28 @@ export function AddReminderPage() {
                   value={customCategory}
                   onChange={(e) => {
                     setCustomCategory(e.target.value);
-                    clearError("category");
+                    const value = e.target.value.trim();
+                    if (value && value.length <= 25) {
+                      clearError("category");
+                    } else if (value.length > 25) {
+                      updateError("category", "Category must be 25 characters or less.");
+                    }
+                  }}
+                  onBlur={() => {
+                    const value = customCategory.trim();
+                    if (!value) {
+                      updateError("category", "Document category is required.");
+                    } else if (value.length > 25) {
+                      updateError("category", "Category must be 25 characters or less.");
+                    } else {
+                      clearError("category");
+                    }
                   }}
                   placeholder="e.g., Contracts, Certificates"
                   maxLength={25}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20 outline-none transition-all text-gray-900 placeholder-gray-400"
+                  className={`w-full px-4 py-3 rounded-xl border ${
+                    errors.category ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" : "border-gray-300 focus:border-navy-500 focus:ring-navy-500/20"
+                  } focus:ring-2 outline-none transition-all text-gray-900 placeholder-gray-400`}
                 />
                 <p className="text-xs text-gray-500 mt-1">{customCategory.length}/25 characters</p>
               </div>
@@ -549,7 +582,7 @@ export function AddReminderPage() {
           </section>
 
           {/* Reminder Details Section */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+          <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -568,7 +601,26 @@ export function AddReminderPage() {
                   value={reminderTitle}
                   onChange={(e) => {
                     setReminderTitle(e.target.value);
-                    clearError("title");
+                    const value = e.target.value.trim();
+                    if (value.length > 0 && value.length < 3) {
+                      updateError("title", "Title must be at least 3 characters.");
+                    } else if (value.length > 100) {
+                      updateError("title", "Title must be 100 characters or less.");
+                    } else {
+                      clearError("title");
+                    }
+                  }}
+                  onBlur={() => {
+                    const value = reminderTitle.trim();
+                    if (!value) {
+                      updateError("title", "Reminder title is required.");
+                    } else if (value.length < 3) {
+                      updateError("title", "Title must be at least 3 characters.");
+                    } else if (value.length > 100) {
+                      updateError("title", "Title must be 100 characters or less.");
+                    } else {
+                      clearError("title");
+                    }
                   }}
                   placeholder="e.g., Passport Renewal"
                   maxLength={100}
@@ -602,10 +654,31 @@ export function AddReminderPage() {
                   min={getMinDate()}
                   onChange={(e) => {
                     setExpiryDate(e.target.value);
-                    clearError("expiryDate");
+                    const expiry = new Date(e.target.value);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (e.target.value && expiry >= today) {
+                      clearError("expiryDate");
+                    } else if (e.target.value) {
+                      updateError("expiryDate", "Expiry date must be in the future.");
+                    }
                     // Reset reminder date if it's after new expiry
                     if (reminderAt && new Date(reminderAt) >= new Date(e.target.value)) {
                       setReminderAt("");
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!expiryDate) {
+                      updateError("expiryDate", "Expiry date is required.");
+                    } else {
+                      const expiry = new Date(expiryDate);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      if (expiry < today) {
+                        updateError("expiryDate", "Expiry date must be in the future.");
+                      } else {
+                        clearError("expiryDate");
+                      }
                     }
                   }}
                   className={`w-full px-4 py-3 rounded-xl border ${
@@ -625,7 +698,7 @@ export function AddReminderPage() {
           </section>
 
           {/* Schedule Type Section */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+          <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -706,7 +779,38 @@ export function AddReminderPage() {
                   max={expiryDate || undefined}
                   onChange={(e) => {
                     setReminderAt(e.target.value);
-                    clearError("reminderAt");
+                    if (!e.target.value) {
+                      clearError("reminderAt");
+                      return;
+                    }
+                    const reminder = new Date(e.target.value + "T00:00:00");
+                    const expiry = new Date(expiryDate + "T00:00:00");
+                    const now = new Date();
+                    now.setHours(0, 0, 0, 0);
+                    if (reminder < now) {
+                      updateError("reminderAt", "Reminder date cannot be in the past.");
+                    } else if (reminder >= expiry) {
+                      updateError("reminderAt", "Reminder must be before expiry date.");
+                    } else {
+                      clearError("reminderAt");
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!reminderAt) {
+                      updateError("reminderAt", "Reminder date is required.");
+                    } else {
+                      const reminder = new Date(reminderAt + "T00:00:00");
+                      const expiry = new Date(expiryDate + "T00:00:00");
+                      const now = new Date();
+                      now.setHours(0, 0, 0, 0);
+                      if (reminder < now) {
+                        updateError("reminderAt", "Reminder date cannot be in the past.");
+                      } else if (reminder >= expiry) {
+                        updateError("reminderAt", "Reminder must be before expiry date.");
+                      } else {
+                        clearError("reminderAt");
+                      }
+                    }
                   }}
                   className={`w-full px-4 py-3 rounded-xl border ${
                     errors.reminderAt ? "border-red-300" : "border-gray-300"
@@ -725,7 +829,7 @@ export function AddReminderPage() {
           </section>
 
           {/* Repeat Type Section */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+          <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -752,7 +856,7 @@ export function AddReminderPage() {
           </section>
 
           {/* Priority & Notifications Section */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+          <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
@@ -815,7 +919,7 @@ export function AddReminderPage() {
           </section>
 
           {/* Notes Section */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+          <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -827,12 +931,25 @@ export function AddReminderPage() {
               value={notes}
               onChange={(e) => {
                 setNotes(e.target.value);
-                clearError("notes");
+                if (e.target.value.length > 500) {
+                  updateError("notes", "Notes must be 500 characters or less.");
+                } else {
+                  clearError("notes");
+                }
+              }}
+              onBlur={() => {
+                if (notes.trim().length > 500) {
+                  updateError("notes", "Notes must be 500 characters or less.");
+                } else {
+                  clearError("notes");
+                }
               }}
               placeholder="Add any additional notes or details..."
               rows={4}
               maxLength={500}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20 outline-none transition-all text-gray-900 placeholder-gray-400 resize-none"
+              className={`w-full px-4 py-3 rounded-xl border ${
+                errors.notes ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" : "border-gray-300 focus:border-navy-500 focus:ring-navy-500/20"
+              } focus:ring-2 outline-none transition-all text-gray-900 placeholder-gray-400 resize-none`}
             />
             <div className="flex justify-between mt-1">
               {errors.notes ? (
@@ -845,7 +962,7 @@ export function AddReminderPage() {
           </section>
 
           {/* File Upload Section */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+          <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -869,9 +986,35 @@ export function AddReminderPage() {
               onChange={handleCameraCapture}
               className="hidden"
             />
+            
+            {/* File naming input - shown when file is selected */}
+            {uploadedFile && (
+              <div className="mb-4 p-4 bg-navy-50 rounded-xl border border-navy-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  File Name
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={uploadedFile.displayName || uploadedFile.name.split('.')[0]}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      setUploadedFile({
+                        ...uploadedFile,
+                        displayName: newName,
+                      });
+                    }}
+                    placeholder="Enter file name"
+                    className="flex-1 px-3 py-2 rounded-lg border border-navy-300 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20 outline-none transition-all text-gray-900 text-sm"
+                  />
+                  <span className="text-xs text-gray-500 pt-2.5">.{uploadedFile.name.split('.').pop()}</span>
+                </div>
+              </div>
+            )}
 
             {!uploadedFile ? (
-              <div className="relative">
+              <div className="relative space-y-4">
+                {/* Mobile/Tablet Upload Options */}
                 <div
                   className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
                     errors.file ? "border-red-300 bg-red-50" : "border-gray-300 hover:border-navy-400 hover:bg-navy-50/50"
@@ -883,34 +1026,55 @@ export function AddReminderPage() {
                     </svg>
                   </div>
                   <p className="text-gray-600 font-medium mb-1">Upload your document</p>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Images, PDFs, or documents (max 10MB)
+                  <p className="text-sm text-gray-500 mb-6">
+                    Choose from device or capture with camera
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-navy-900 text-white rounded-lg font-medium hover:bg-navy-950 transition-colors"
-                    >
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-navy-900 text-white rounded-lg font-medium hover:bg-navy-950 transition-colors min-h-[44px]"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Choose From Device
+              </button>
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white border-2 border-navy-900 text-navy-900 rounded-lg font-medium hover:bg-navy-50 transition-colors min-h-[44px]"
+              >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
-                      Choose File
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white border-2 border-navy-900 text-navy-900 rounded-lg font-medium hover:bg-navy-50 transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0118.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      Use Camera
+                      Open Camera
                     </button>
                   </div>
                 </div>
+
+                {/* Desktop QR Code Option */}
+                {typeof window !== 'undefined' && window.innerWidth >= 768 && (
+                  <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center bg-blue-50/50">
+                    <p className="text-sm text-blue-700 font-medium mb-3">Mobile Device?</p>
+                    <p className="text-xs text-blue-600 mb-4">
+                      Scan this QR code with your phone to upload directly from mobile
+                    </p>
+                    <div className="w-32 h-32 mx-auto bg-white border-2 border-blue-300 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <svg className="w-8 h-8 mx-auto text-blue-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="text-xs text-blue-600">QR Code</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-3">
+                      (QR code feature coming soon)
+                    </p>
+                  </div>
+                )}
 
                 {errors.file && (
                   <p className="text-red-600 text-sm mt-2 flex items-center gap-1">
@@ -922,11 +1086,11 @@ export function AddReminderPage() {
                 )}
               </div>
             ) : (
-              <div className="bg-gray-50 rounded-xl p-4">
+              <div className="bg-gradient-to-br from-navy-50 to-blue-50 rounded-xl p-6 border border-navy-200">
                 <div className="flex items-start gap-4">
                   {/* File Preview */}
                   {filePreview ? (
-                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                    <div className="relative w-28 h-28 rounded-lg overflow-hidden border-2 border-navy-300 flex-shrink-0 shadow-md">
                       <img
                         src={filePreview}
                         alt="Preview"
@@ -934,17 +1098,23 @@ export function AddReminderPage() {
                       />
                     </div>
                   ) : (
-                    <div className="w-24 h-24 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                    <div className="w-28 h-28 rounded-lg bg-gradient-to-br from-navy-100 to-navy-50 flex items-center justify-center flex-shrink-0 border-2 border-navy-200">
+                      <div className="text-center">
+                        <svg className="w-12 h-12 text-navy-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-xs text-navy-600 font-medium">{uploadedFile.name.split('.').pop().toUpperCase()}</span>
+                      </div>
                     </div>
                   )}
 
                   {/* File Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">{uploadedFile.name}</p>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="font-semibold text-gray-900 truncate">{uploadedFile.displayName || uploadedFile.name.split('.')[0]}</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {uploadedFile.type || 'File'}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-0.5 font-medium">
                       {(uploadedFile.size / 1024).toFixed(1)} KB
                     </p>
 
@@ -958,7 +1128,7 @@ export function AddReminderPage() {
                               setCropImage(filePreview);
                               setShowCropModal(true);
                             }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-navy-700 bg-navy-100 rounded-lg hover:bg-navy-200 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-navy-700 bg-navy-100 rounded-lg hover:bg-navy-200 transition-colors min-h-[40px]"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 10h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -968,7 +1138,7 @@ export function AddReminderPage() {
                           <button
                             type="button"
                             onClick={convertToPDF}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors min-h-[40px]"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -980,7 +1150,7 @@ export function AddReminderPage() {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors min-h-[40px]"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -990,7 +1160,7 @@ export function AddReminderPage() {
                       <button
                         type="button"
                         onClick={removeFile}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors min-h-[40px]"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1017,9 +1187,12 @@ export function AddReminderPage() {
               />
               <button
                 type="button"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => {
+                  setLoading(true);
+                  navigate("/dashboard");
+                }}
                 disabled={loading}
-                className="flex-1 px-6 py-3 bg-white text-gray-700 border-2 border-gray-300 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="flex-1 px-6 py-3 sm:py-3 bg-white text-gray-700 border-2 border-gray-300 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-50 min-h-[44px] sm:min-h-auto"
               >
                 Cancel
               </button>
@@ -1027,7 +1200,7 @@ export function AddReminderPage() {
                 type="button"
                 onClick={handleReset}
                 disabled={loading}
-                className="flex-1 px-6 py-3 bg-white text-red-600 border-2 border-red-200 rounded-lg font-semibold text-sm hover:bg-red-50 transition-colors disabled:opacity-50"
+                className="flex-1 px-6 py-3 sm:py-3 bg-white text-red-600 border-2 border-red-200 rounded-lg font-semibold text-sm hover:bg-red-50 transition-colors disabled:opacity-50 min-h-[44px] sm:min-h-auto"
               >
                 Reset
               </button>
@@ -1126,13 +1299,13 @@ export function AddReminderPage() {
                   setShowCropModal(false);
                   setCropImage(null);
                 }}
-                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors min-h-[44px]"
               >
                 Cancel
               </button>
               <button
                 onClick={applyCrop}
-                className="flex-1 px-4 py-2.5 bg-navy-900 text-white rounded-lg font-medium hover:bg-navy-950 transition-colors"
+                className="flex-1 px-4 py-3 bg-navy-900 text-white rounded-lg font-medium hover:bg-navy-950 transition-colors min-h-[44px]"
               >
                 Apply Crop
               </button>
