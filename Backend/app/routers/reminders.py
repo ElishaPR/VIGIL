@@ -9,6 +9,7 @@ from app.models.users import User
 
 from app.services.document_service import create_document_service
 from app.services.reminder_service import create_reminder_service
+from app.services.dashboard_service import get_dashboard_reminders_service
 
 
 router = APIRouter(
@@ -116,4 +117,23 @@ async def create_reminder_api(
 
         "reminder_uuid": str(reminder_record.reminder_uuid)
 
+    }
+
+
+@router.get("/dashboard")
+def get_dashboard_reminders(
+
+    db: Session = Depends(get_db),
+
+    current_user: User = Depends(get_current_user)
+
+):
+
+    reminders = get_dashboard_reminders_service(
+        db=db,
+        user_id=current_user.user_id
+    )
+
+    return {
+        "reminders": reminders
     }
