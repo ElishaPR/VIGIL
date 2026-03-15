@@ -2,9 +2,9 @@ import uuid
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
-from app.services.supabase_service import upload_file
-from app.services.encryption_service import encrypt_file
-from app.crud.documents import create_document as crud_create_document
+from app.services.supabase_service import upload_file, delete_file, replace_file, get_signed_url
+from app.services.encryption_service import encrypt_file, decrypt_file
+from app.crud.documents import create_document as crud_create_document, get_document_by_uuid, get_user_documents, update_document, delete_document
 from app.core.config import settings
 
 
@@ -85,3 +85,81 @@ def create_document_service(
     )
 
     return document
+
+
+
+
+def list_documents_service(db, user_id):
+
+    return get_user_documents(db, user_id)
+
+
+def get_document_file_service(db, doc_uuid, user_id):
+
+    document = get_document_by_uuid(db, doc_uuid, user_id)
+
+    if not document:
+        raise HTTPException(404, "Document not found")
+
+    url = get_signed_url(document.storage_key)
+
+    return {
+        "doc_uuid": doc_uuid,
+        "url": url
+    }
+
+
+def delete_document_service(db, doc_uuid, user_id):
+
+    document = get_document_by_uuid(db, doc_uuid, user_id)
+
+    if not document:
+        raise HTTPException(404, "Document not found")
+
+    delete_file(document.storage_key)
+
+    delete_document(db, document)
+
+
+def update_document_service(
+    db,
+    user_id,
+    doc_uuid,
+    category,
+    title,
+    expiry_date,
+    file,
+    user_uuid
+):
+
+    document = get_document_by_uuid(db, doc_uuid, user_id)
+
+    if not document:
+        raise HTTPException(404, "Document not found")
+
+    if file:
+
+        validate_file(file)
+
+        contents = file.file.read()
+
+        encrypted = encrypt_file(contents)
+
+        replace_file(
+            document.storage_key,
+            encrypted,
+            file.content_type
+        )
+
+        document.doc_size = len(contents)
+        document.mime_type = file.content_type
+
+    if category:
+        document.doc_category = category
+
+    if title:
+        document.doc_title = title
+
+    document.expiry_date = expiry_date
+
+    return update_document(db, document)

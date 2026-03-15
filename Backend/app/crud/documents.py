@@ -30,3 +30,31 @@ def create_document(
     db.refresh(document)
 
     return document
+
+def get_document_by_uuid(db: Session, doc_uuid: str, user_id: int):
+
+    return db.query(Document).filter(
+        Document.doc_uuid == doc_uuid,
+        Document.user_id == user_id
+    ).first()
+
+
+def get_user_documents(db: Session, user_id: int):
+
+    return db.query(Document).filter(
+        Document.user_id == user_id
+    ).order_by(Document.created_at.desc()).all()
+
+
+def update_document(db: Session, document: Document):
+
+    db.commit()
+    db.refresh(document)
+
+    return document
+
+
+def delete_document(db: Session, document: Document):
+
+    db.delete(document)
+    db.commit()

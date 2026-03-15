@@ -32,3 +32,23 @@ def create_reminder(
     db.refresh(reminder)
 
     return reminder
+
+def get_reminder_by_uuid(db: Session, reminder_uuid: str):
+
+    return db.query(Reminder).filter(
+        Reminder.reminder_uuid == reminder_uuid
+    ).first()
+
+
+def update_reminder(db: Session, reminder: Reminder):
+
+    db.commit()
+    db.refresh(reminder)
+
+    return reminder
+
+
+def delete_reminder(db: Session, reminder: Reminder):
+
+    db.delete(reminder)
+    db.commit()

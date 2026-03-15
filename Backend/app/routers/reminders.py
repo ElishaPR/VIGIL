@@ -8,7 +8,7 @@ from app.dependencies.auth_cookie import get_current_user
 from app.models.users import User
 
 from app.services.document_service import create_document_service
-from app.services.reminder_service import create_reminder_service
+from app.services.reminder_service import create_reminder_service, update_reminder_service, delete_reminder_service
 from app.services.dashboard_service import get_dashboard_reminders_service
 
 
@@ -137,3 +137,55 @@ def get_dashboard_reminders(
     return {
         "reminders": reminders
     }
+
+
+
+@router.put("/{reminder_uuid}")
+def update_reminder(
+
+    reminder_uuid: str,
+
+    schedule_type: str | None = Form(None),
+    reminder_at: str | None = Form(None),
+    repeat_type: str | None = Form(None),
+    priority: str | None = Form(None),
+    enable_push: bool = Form(False),
+    notes: str | None = Form(None),
+
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+
+):
+
+    reminder = update_reminder_service(
+        db,
+        reminder_uuid,
+        schedule_type,
+        reminder_at,
+        repeat_type,
+        priority,
+        notes,
+        enable_push
+    )
+
+    return {
+        "reminder_uuid": str(reminder.reminder_uuid)
+    }
+
+
+@router.delete("/{reminder_uuid}")
+def delete_reminder(
+
+    reminder_uuid: str,
+
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+
+):
+
+    delete_reminder_service(
+        db,
+        reminder_uuid
+    )
+
+    return {"message": "Reminder deleted"}

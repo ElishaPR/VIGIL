@@ -12,7 +12,7 @@ class Document(Base):
     doc_category = Column(String(25), nullable=False)
     doc_title = Column(String(50), nullable=False)
     doc_size = Column(BigInteger, nullable=False)
-    expiry_date = Column(Date, nullable=False)
+    expiry_date = Column(Date)
     mime_type = Column(Text, nullable=False)
     storage_key = Column(Text, nullable=False, unique=True)
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

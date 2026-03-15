@@ -7,6 +7,10 @@ from app.database import get_db
 from app.models.users import User
 
 from app.schemas.users import (
+    ChangeEmailData,
+    ChangeEmailResponse,
+    ChangePasswordData,
+    ChangePasswordResponse,
     SignUpData,
     SignUpUserResponse,
     LoginData,
@@ -25,7 +29,9 @@ from app.crud.email_verification_otps import (
 from app.core.security import (
     create_access_token,
     ACCESS_TOKEN_EXPIRE_SECONDS,
-    get_current_user_payload
+    get_current_user_payload,
+    verify_password,
+    password_hashing
 )
 
 
@@ -245,20 +251,113 @@ def update_profile(
         "message": "Profile updated successfully"
     }
 
+@router.put("/me", response_model=UpdateProfileResponse)
+def update_profile(
+    data: UpdateProfileData,
+    token_data: dict = Depends(get_current_user_payload),
+    db: Session = Depends(get_db)
+):
 
-# @router.post("/save-fcm-token", response_model=SaveFCMTokenResponse)
-# def save_fcm_token(
-#         save_fcm_token_data: SaveFCMTokenData,
-#         db: Session = Depends(get_db),
-#         token_data: dict = Depends(get_current_user_payload)
-# ):
+    user = db.query(User).filter(
+        User.user_id == token_data["user_id"]
+    ).first()
 
-#     user_id = token_data["user_id"]
+    if not user:
+        raise HTTPException(404, "User not found")
 
-#     save_user_fcm_token(
-#         db,
-#         save_fcm_token_data,
-#         user_id
-#     )
+    user.display_name = data.display_name
 
-#     return SaveFCMTokenResponse()
+    db.commit()
+
+    return UpdateProfileResponse()
+
+@router.put("/me/change-email", response_model=ChangeEmailResponse)
+def change_email(
+    data: ChangeEmailData,
+    token_data: dict = Depends(get_current_user_payload),
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(User).filter(
+        User.user_id == token_data["user_id"]
+    ).first()
+
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    existing = db.query(User).filter(
+        User.email_address == data.new_email_address
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="Email already in use."
+        )
+
+    try:
+
+        with db.begin():
+
+            user.email_address = data.new_email_address
+            user.email_verified = False
+
+            invalidate_previous_otps(db, user.user_id)
+
+            otp_record, otp = create_email_verification_otp(
+                db,
+                user.user_id
+            )
+
+        send_verification_email(
+            user.email_address,
+            user.display_name,
+            otp
+        )
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Email already exists.")
+
+    return ChangeEmailResponse()
+
+
+@router.put("/me/change-password", response_model=ChangePasswordResponse)
+def change_password(
+    data: ChangePasswordData,
+    token_data: dict = Depends(get_current_user_payload),
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(User).filter(
+        User.user_id == token_data["user_id"]
+    ).first()
+
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if not verify_password(
+        data.current_password,
+        user.hashed_password
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Current password is incorrect."
+        )
+
+    try:
+
+        user.hashed_password = password_hashing(
+            data.new_password
+        )
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Password change failed."
+        )
+
+    return ChangePasswordResponse()

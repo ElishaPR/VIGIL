@@ -1,3 +1,4 @@
+from sqlalchemy.exc import IntegrityError
 from typing import Union
 from sqlalchemy.orm import Session
 
@@ -40,5 +41,36 @@ def authenticate_user(db: Session, user_in: LoginData) -> Union[User, None]:
 
     if not verify_password(user_in.raw_password, user.hashed_password):
         return None
+
+    return user
+
+
+
+def update_display_name(db: Session, user: User, display_name: str):
+
+    user.display_name = display_name
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+
+def change_user_email(db: Session, user: User, new_email: str):
+
+    user.email_address = new_email
+    user.email_verified = False
+
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+
+def change_user_password(db: Session, user: User, new_password: str):
+
+    user.hashed_password = password_hashing(new_password)
+
+    db.commit()
+    db.refresh(user)
 
     return user

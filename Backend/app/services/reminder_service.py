@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 import pytz
 
-from app.crud.reminders import create_reminder as crud_create_reminder
+from app.crud.reminders import create_reminder as crud_create_reminder, get_reminder_by_uuid, update_reminder, delete_reminder
 
 
 VALID_SCHEDULE_TYPES = ["DEFAULT", "CUSTOM"]
@@ -95,3 +95,47 @@ def create_reminder_service(
     )
 
     return reminder
+
+
+def update_reminder_service(
+    db,
+    reminder_uuid,
+    schedule_type,
+    reminder_at,
+    repeat_type,
+    priority,
+    notes,
+    enable_push
+):
+
+    reminder = get_reminder_by_uuid(db, reminder_uuid)
+
+    if not reminder:
+        raise HTTPException(404, "Reminder not found")
+
+    if schedule_type:
+        reminder.schedule_type = schedule_type
+
+    if reminder_at:
+        reminder.reminder_at = reminder_at
+
+    if repeat_type:
+        reminder.repeat_type = repeat_type
+
+    if priority:
+        reminder.priority = priority
+
+    reminder.notes = notes
+    reminder.push_notification = enable_push
+
+    return update_reminder(db, reminder)
+
+
+def delete_reminder_service(db, reminder_uuid):
+
+    reminder = get_reminder_by_uuid(db, reminder_uuid)
+
+    if not reminder:
+        raise HTTPException(404, "Reminder not found")
+
+    delete_reminder(db, reminder)

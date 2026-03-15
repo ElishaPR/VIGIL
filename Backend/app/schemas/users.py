@@ -114,13 +114,22 @@ class UpdateProfileResponse(BaseModel):
     message: str = "Profile updated successfully."
 
 
-# class SaveFCMTokenData(BaseModel):
+class ChangeEmailData(BaseModel):
 
-#     fcm_token: str
+    new_email_address: EmailStr
 
 
-# class SaveFCMTokenResponse(BaseModel):
+class ChangeEmailResponse(BaseModel):
 
-#     model_config = ConfigDict(from_attributes=True)
+    message: str = "Email updated. Please verify your new email."
 
-#     message: str = "Push Notification details saved successfully."
+
+class ChangePasswordData(BaseModel):
+
+    current_password: str = Field(min_length=8, max_length=64)
+    new_password: str = Field(min_length=8, max_length=64)
+
+
+class ChangePasswordResponse(BaseModel):
+
+    message: str = "Password updated successfully."
