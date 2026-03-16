@@ -8,6 +8,8 @@ import { LoginPage } from "./pages/LoginPage.jsx";
 import { VerifyPage } from "./pages/VerifyPage.jsx";
 import { DashboardPage } from "./pages/DashboardPage.jsx";
 import { AddReminderPage } from "./pages/AddReminderPage.jsx";
+import { EditReminderPage } from "./pages/EditReminderPage.jsx";
+import { UploadDocumentPage } from "./pages/UploadDocumentPage.jsx";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage.jsx";
 import { UserProfilePage } from "./pages/UserProfilePage.jsx";
 import { NotFoundPage } from "./pages/NotFoundPage.jsx";
@@ -126,6 +128,14 @@ function App() {
         <Route
           path="/addreminder"
           element={<ProtectedRoute element={<AddReminderPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
+        />
+        <Route
+          path="/editreminder/:id"
+          element={<ProtectedRoute element={<EditReminderPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
+        />
+        <Route
+          path="/uploaddocument"
+          element={<ProtectedRoute element={<UploadDocumentPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
