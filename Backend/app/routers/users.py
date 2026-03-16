@@ -15,6 +15,7 @@ from app.schemas.users import (
     SignUpUserResponse,
     LoginData,
     LoginUserResponse,
+    UserProfileResponse,
     UpdateProfileData,
     UpdateProfileResponse
 )
@@ -207,7 +208,7 @@ def logout(response: Response):
         "message": "Logged out successfully."
     }
 
-@router.get("/me", response_model=UpdateProfileResponse)
+@router.get("/me", response_model=UserProfileResponse)
 def get_current_user(
     token_data: dict = Depends(get_current_user_payload),
     db: Session = Depends(get_db)
@@ -229,27 +230,27 @@ def get_current_user(
         "email_address": user.email_address
     }
 
-@router.put("/me")
-def update_profile(
-    data: UpdateProfileData,
-    token_data: dict = Depends(get_current_user_payload),
-    db: Session = Depends(get_db)
-):
+# @router.put("/me")
+# def update_profile(
+#     data: UpdateProfileData,
+#     token_data: dict = Depends(get_current_user_payload),
+#     db: Session = Depends(get_db)
+# ):
 
-    user = db.query(User).filter(
-        User.user_id == token_data["user_id"]
-    ).first()
+#     user = db.query(User).filter(
+#         User.user_id == token_data["user_id"]
+#     ).first()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
 
-    user.display_name = data.display_name
+#     user.display_name = data.display_name
 
-    db.commit()
+#     db.commit()
 
-    return {
-        "message": "Profile updated successfully"
-    }
+#     return {
+#         "message": "Profile updated successfully"
+#     }
 
 @router.put("/me", response_model=UpdateProfileResponse)
 def update_profile(

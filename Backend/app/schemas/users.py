@@ -87,6 +87,14 @@ class LoginUserResponse(BaseModel):
     display_name: str
     message: str = "Login successful."
 
+class UserProfileResponse(BaseModel):
+
+    model_config = ConfigDict(from_attributes=True)
+
+    user_uuid: str
+    display_name: str
+    email_address: EmailStr
+
 
 class UpdateProfileData(BaseModel):
 

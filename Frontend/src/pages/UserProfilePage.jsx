@@ -46,6 +46,7 @@ export function UserProfilePage() {
 
         if (response.ok) {
           const data = await response.json();
+          console.log("User API response:", data);
           setUserData(data);
           setDisplayName(data.display_name);
         } else if (response.status === 401) {
