@@ -44,7 +44,8 @@ def invalidate_previous_otps(db: Session, user_id: int):
 
 def create_email_verification_otp(
     db: Session,
-    user_id: int
+    user_id: int,
+    new_email: str = None   
 ):
 
     otp = generate_otp()
@@ -55,7 +56,8 @@ def create_email_verification_otp(
     otp_record = EmailVerificationOTP(
         user_id=user_id,
         otp_hash=otp_hash,
-        expires_at=expires_at
+        expires_at=expires_at,
+        new_email=new_email   
     )
 
     db.add(otp_record)

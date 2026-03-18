@@ -167,7 +167,7 @@ export function UserProfilePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ new_email: newEmail }),
+        body: JSON.stringify({ new_email_address: newEmail }),
       });
 
       if (response.ok) {
@@ -203,7 +203,7 @@ export function UserProfilePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ new_email: newEmail, otp: code }),
+        body: JSON.stringify({ new_email_address: newEmail, otp: code }),
       });
 
       if (response.ok) {
@@ -237,7 +237,7 @@ export function UserProfilePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ new_email: newEmail }),
+        body: JSON.stringify({ new_email_address: newEmail }),
       });
 
       if (response.ok) {
@@ -276,6 +276,10 @@ export function UserProfilePage() {
       errors.confirmPassword = "Passwords do not match.";
     }
 
+    if (newPassword === currentPassword) {
+      errors.newPassword = "New password cannot be the same as current password.";
+    }
+
     if (Object.keys(errors).length > 0) {
       setErrors((prev) => ({ ...prev, ...errors }));
       return;
@@ -285,8 +289,8 @@ export function UserProfilePage() {
     updateError("api", "");
 
     try {
-      const response = await fetch("http://localhost:8000/users/change-password", {
-        method: "POST",
+      const response = await fetch("http://localhost:8000/users/me/change-password", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
@@ -304,7 +308,19 @@ export function UserProfilePage() {
         setTimeout(() => setSuccessMessage(""), 3000);
       } else {
         const result = await response.json();
-        updateError("api", result.detail || "Failed to change password.");
+        if (response.status === 400) {
+          if (result.detail.toLowerCase().includes("current password")) {
+            updateError("currentPassword", result.detail);
+          } else if (result.detail.toLowerCase().includes("new password")) {
+            updateError("newPassword", result.detail);
+          } else {
+            updateError("api", result.detail);
+          }
+        } else if (response.status === 401) {
+          navigate("/login");
+        } else {
+          updateError("api", result.detail || "Failed to change password.");
+        }
       }
     } catch {
       updateError("api", "Server not connected. Try again...");

@@ -1,6 +1,7 @@
 from app.database import Base
 from sqlalchemy import Column, Integer, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import CITEXT
 
 
 class EmailVerificationOTP(Base):
@@ -14,3 +15,4 @@ class EmailVerificationOTP(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     attempts = Column(Integer, nullable=False, server_default="0")
     last_sent_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    new_email = Column(CITEXT, nullable=True)
