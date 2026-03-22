@@ -5,7 +5,8 @@ from app.models.reminders import Reminder
 def create_reminder(
     db: Session,
     reminder_uuid: str,
-    doc_id: int,
+    user_id: int,
+    doc_id: int | None,
     schedule_type: str,
     reminder_at,
     reminder_title: str,
@@ -17,6 +18,7 @@ def create_reminder(
 
     reminder = Reminder(
         reminder_uuid=reminder_uuid,
+        user_id=user_id,
         doc_id=doc_id,
         schedule_type=schedule_type,
         reminder_at=reminder_at,

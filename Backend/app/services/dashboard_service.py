@@ -6,6 +6,9 @@ from app.crud.dashboard import get_user_reminders_dashboard
 
 def calculate_status(expiry_date):
 
+    if not expiry_date:
+        return "no_expiry"
+
     today = datetime.utcnow().date()
 
     if expiry_date < today:
@@ -33,13 +36,22 @@ def get_dashboard_reminders_service(db: Session, user_id: int):
 
     for reminder, document in rows:
 
-        status = calculate_status(document.expiry_date)
+        if document:
+            title = document.doc_title
+            category = document.doc_category.lower()
+            expiry = document.expiry_date
+        else:
+            title = reminder.reminder_title
+            category = "general"
+            expiry = None
+
+        status = calculate_status(expiry)
 
         reminders.append({
             "id": reminder.reminder_id,
-            "title": document.doc_title,
-            "category": document.doc_category.lower(),
-            "expiryDate": document.expiry_date,
+            "title": title,
+            "category": category,
+            "expiryDate": expiry,
             "priority": format_priority(reminder.priority),
             "status": status
         })

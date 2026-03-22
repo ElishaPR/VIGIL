@@ -31,6 +31,15 @@ const REPEAT_OPTIONS = [
 
 const MAX_FILE_SIZE_MB = 10;
 
+// Convert date (yyyy-mm-dd) to LOCAL ISO (no Z)
+const toLocalISOString = (dateStr, time = "09:00:00") => {
+  const local = new Date(`${dateStr}T${time}`);
+  
+  const pad = (n) => String(n).padStart(2, "0");
+
+  return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}`;
+};
+
 export function AddReminderPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -268,10 +277,6 @@ export function AddReminderPage() {
 
     }
 
-    // File validation
-    if (!uploadedFile) {
-      newErrors.file = "Please upload a document.";
-    }
 
     // Notes validation
     if (notes.trim().length > 500) {
@@ -294,25 +299,29 @@ export function AddReminderPage() {
 
     try {
       const formData = new FormData();
+
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       formData.append("timezone", timezone);
+
       const finalCategory = isCustomCategory ? customCategory.trim() : docCategory;
 
       formData.append("category", finalCategory);
       formData.append("title", reminderTitle.trim());
-      const expiryDateISO = new Date(expiryDate).toISOString().split("T")[0];
-      formData.append("expiry_date", expiryDateISO);
+
+      formData.append("expiry_date", expiryDate);
+
       formData.append("schedule_type", scheduleType);
       formData.append("repeat_type", repeatType);
       formData.append("priority", priority);
+
       formData.append("enable_push", pushNotification ? "true" : "false");
 
       if (scheduleType === "custom" && reminderAt) {
-        const reminderISO = new Date(reminderAt + "T09:00:00")
-          .toISOString()
-          .replace("Z", "");
 
-        formData.append("reminder_at", reminderISO);
+        // Send LOCAL datetime (NO toISOString)
+        const reminderLocal = toLocalISOString(reminderAt, "09:00:00");
+
+        formData.append("reminder_at", reminderLocal);
       }
 
       if (notes.trim()) {
@@ -323,7 +332,7 @@ export function AddReminderPage() {
         formData.append("document", uploadedFile);
       }
 
-      // Handle push notifications
+      // ---------------- PUSH NOTIFICATIONS ----------------
       if (pushNotification) {
 
         let permission = Notification.permission;
@@ -337,10 +346,9 @@ export function AddReminderPage() {
           const registration = await navigator.serviceWorker.ready;
 
           try {
-            // delete old token (important when switching browsers or accounts)
             await deleteToken(messaging);
-          } catch (err) {
-            console.log("No previous token to delete");
+          } catch {
+            console.log("No previous token");
           }
 
           const token = await getToken(messaging, {
@@ -349,9 +357,6 @@ export function AddReminderPage() {
           });
 
           if (token) {
-
-            console.log("FCM Token:", token);
-
             await fetch("http://localhost:8000/fcm/register", {
               method: "POST",
               credentials: "include",
@@ -362,24 +367,17 @@ export function AddReminderPage() {
                 fcm_token: token
               })
             });
-
-          } else {
-
-            console.log("No registration token available");
-
           }
 
         } else {
-
           updateError("api", "Push notification permission denied.");
           setPushNotification(false);
           setLoading(false);
           return;
-
         }
-
       }
 
+      // ---------------- API CALL ----------------
       const response = await fetch("http://localhost:8000/reminders/create", {
         method: "POST",
         credentials: "include",
@@ -391,19 +389,19 @@ export function AddReminderPage() {
       if (response.ok) {
         setSuccessMessage("Reminder created successfully!");
         setTimeout(() => {
-          setLoading(true); // Show loading before navigating
+          setLoading(true);
           navigate("/dashboard");
         }, 1500);
       } else {
         updateError("api", result.detail || result.message || "Failed to create reminder.");
       }
+
     } catch {
       updateError("api", "Server not connected. Please try again.");
     } finally {
       setLoading(false);
     }
   };
-
   // Reset form
   const handleReset = () => {
     setDocCategory("");
@@ -713,6 +711,7 @@ export function AddReminderPage() {
                 onClick={() => {
                   setScheduleType("default");
                   setReminderAt("");
+                  setRepeatType("none");
                   clearError("reminderAt");
                 }}
                 className={`p-4 rounded-xl border-2 text-left transition-all ${
@@ -734,7 +733,7 @@ export function AddReminderPage() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 ml-8">
-                  Email notification sent 1 day before expiry
+                  EEmail notification is sent 1 day before expiry. If expiry is set to today, the reminder will be sent today.
                 </p>
               </button>
 
@@ -829,31 +828,33 @@ export function AddReminderPage() {
           </section>
 
           {/* Repeat Type Section */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Repeat Type
-            </h2>
+          {scheduleType === "custom" && (
+            <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Repeat Type
+              </h2>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {REPEAT_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setRepeatType(option.id)}
-                  className={`px-4 py-3 rounded-xl border-2 font-medium transition-all ${
-                    repeatType === option.id
-                      ? "border-navy-500 bg-navy-50 text-navy-700"
-                      : "border-gray-200 text-gray-600 hover:border-gray-300"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </section>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {REPEAT_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setRepeatType(option.id)}
+                    className={`px-4 py-3 rounded-xl border-2 font-medium transition-all ${
+                      repeatType === option.id
+                        ? "border-navy-500 bg-navy-50 text-navy-700"
+                        : "border-gray-200 text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Priority & Notifications Section */}
           <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
@@ -967,7 +968,7 @@ export function AddReminderPage() {
               <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
-              Upload Document <span className="text-red-500">*</span>
+              Upload Document <span className="text-red-500">(Optional)</span>
             </h2>
 
             {/* Hidden file inputs */}
@@ -1076,7 +1077,7 @@ export function AddReminderPage() {
                   </div>
                 )}
 
-                {errors.file && (
+                {errors.file && uploadedFile === null && (
                   <p className="text-red-600 text-sm mt-2 flex items-center gap-1">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />

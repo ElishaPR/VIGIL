@@ -54,7 +54,7 @@ function ReminderCard({ reminder, onEdit, onDelete }) {
       onDelete(reminder.reminder_uuid);
     }
   };
-
+  console.log("STATUS FROM BACKEND:", reminder.status);
   return (
     <div className={`p-4 rounded-xl border ${status.border} ${status.bg} transition-all hover:shadow-md`}>
       <div className="flex items-start gap-3">

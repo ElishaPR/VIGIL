@@ -12,6 +12,7 @@ from app.services.email_service import send_email
 from app.services.push_notification_service import send_push_notification
 
 
+# ---------------- NEXT RUN LOGIC ----------------
 def get_next_reminder_time(reminder):
 
     current_time = reminder.reminder_at
@@ -28,10 +29,12 @@ def get_next_reminder_time(reminder):
     return None
 
 
+# ---------------- MAIN SCHEDULER ----------------
 def check_and_send_notifications(db: Session):
 
     now = datetime.now(timezone.utc)
 
+    # -------- FETCH DUE REMINDERS --------
     reminders = db.query(Reminder).filter(
         Reminder.reminder_at <= now,
         Reminder.reminder_status == "PENDING"
@@ -42,91 +45,86 @@ def check_and_send_notifications(db: Session):
 
     reminder_ids = [r.reminder_id for r in reminders]
 
-    # prevent duplicate execution
+    # -------- LOCK THEM (avoid duplicate processing) --------
     db.query(Reminder).filter(
         Reminder.reminder_id.in_(reminder_ids)
     ).update(
         {"reminder_status": "PROCESSING"},
         synchronize_session=False
     )
-
     db.commit()
 
-    doc_ids = list(set(r.doc_id for r in reminders))
+    # -------- COLLECT IDS SAFELY --------
+    doc_ids = list({r.doc_id for r in reminders if r.doc_id is not None})
+    user_ids = list({r.user_id for r in reminders})
 
-    documents = db.query(Document).filter(
-        Document.doc_id.in_(doc_ids)
-    ).all()
+    # -------- FETCH DOCUMENTS (OPTIONAL) --------
+    doc_map = {}
+    if doc_ids:
+        documents = db.query(Document).filter(
+            Document.doc_id.in_(doc_ids)
+        ).all()
+        doc_map = {d.doc_id: d for d in documents}
 
-    doc_map = {d.doc_id: d for d in documents}
-
-    user_ids = list(set(d.user_id for d in documents))
-
+    # -------- FETCH USERS --------
     users = db.query(User).filter(
         User.user_id.in_(user_ids)
     ).all()
 
     user_email_map = {u.user_id: u.email_address for u in users}
 
+    # -------- FETCH FCM TOKENS --------
     tokens = db.query(User_FCM_Token).filter(
         User_FCM_Token.user_id.in_(user_ids),
         User_FCM_Token.is_active == True
     ).all()
 
     user_tokens = defaultdict(list)
-
     for t in tokens:
         user_tokens[t.user_id].append(t.fcm_token)
 
+    # -------- PROCESS EACH REMINDER --------
     for reminder in reminders:
 
         try:
 
-            doc = doc_map.get(reminder.doc_id)
-
-            if not doc:
-                reminder.reminder_status = "FAILED"
-                continue
-
-            user_id = doc.user_id
-
+            user_id = reminder.user_id
             email = user_email_map.get(user_id)
 
+            doc = None
+            if reminder.doc_id:
+                doc = doc_map.get(reminder.doc_id)
+
             # -------- EMAIL --------
-
             if reminder.email_notification and email:
-
                 try:
-
                     send_email(
                         to_email=email,
-                        subject="Vigil Document Reminder",
+                        subject="Vigil Reminder",
                         reminder_title=reminder.reminder_title,
                         reminder_uuid=str(reminder.reminder_uuid)
                     )
-
                 except Exception as e:
                     print("Email failed:", e)
 
             # -------- PUSH --------
-
             if reminder.push_notification:
 
                 tokens = user_tokens.get(user_id, [])
 
                 for token in tokens:
-
                     try:
-                        data={
+                        data = {
                             "reminder_id": reminder.reminder_id,
                             "doc_id": reminder.doc_id,
                             "type": "reminder"
                         }
+
                         send_push_notification(
                             db=db,
                             token=token,
-                            title="Document Reminder",
-                            body=f"Your {reminder.reminder_title} is due",
+                            title="Reminder",
+                            body=f"{reminder.reminder_title}",
                             reminder_uuid=reminder.reminder_uuid,
                             data=data
                         )
@@ -134,8 +132,7 @@ def check_and_send_notifications(db: Session):
                     except Exception as e:
                         print("Push error:", e)
 
-            # -------- HANDLE REPEAT --------
-
+            # -------- REPEAT HANDLING --------
             next_time = get_next_reminder_time(reminder)
 
             if next_time:
@@ -145,7 +142,6 @@ def check_and_send_notifications(db: Session):
                 reminder.reminder_status = "SENT"
 
         except Exception as e:
-
             print("Reminder processing failed:", e)
             reminder.reminder_status = "FAILED"
 
