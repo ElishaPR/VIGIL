@@ -7,13 +7,17 @@ import { SignUpPage } from "./pages/SignUpPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 import { VerifyPage } from "./pages/VerifyPage.jsx";
 import { DashboardPage } from "./pages/DashboardPage.jsx";
-import { AddReminderPage } from "./pages/AddReminderPage.jsx";
-import { EditReminderPage } from "./pages/EditReminderPage.jsx";
-import { UploadDocumentPage } from "./pages/UploadDocumentPage.jsx";
+import { ReminderFormPage } from "./pages/ReminderFormPage.jsx";
+import { DocumentFormPage } from "./pages/DocumentFormPage.jsx";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage.jsx";
 import { UserProfilePage } from "./pages/UserProfilePage.jsx";
 import { NotFoundPage } from "./pages/NotFoundPage.jsx";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+// Legacy imports for backward compatibility
+import { AddReminderPage } from "./pages/AddReminderPage.jsx";
+import { EditReminderPage } from "./pages/EditReminderPage.jsx";
+import { UploadDocumentPage } from "./pages/UploadDocumentPage.jsx";
 
 function ProtectedRoute({ element, isAuthenticated, isLoading }) {
   if (isLoading) {
@@ -125,6 +129,25 @@ function App() {
           path="/profile"
           element={<ProtectedRoute element={<UserProfilePage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
         />
+        {/* New routes - unified form pages */}
+        <Route
+          path="/reminder/add"
+          element={<ProtectedRoute element={<ReminderFormPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
+        />
+        <Route
+          path="/reminder/:id"
+          element={<ProtectedRoute element={<ReminderFormPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
+        />
+        <Route
+          path="/document/add"
+          element={<ProtectedRoute element={<DocumentFormPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
+        />
+        <Route
+          path="/document/:id"
+          element={<ProtectedRoute element={<DocumentFormPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
+        />
+
+        {/* Legacy routes for backward compatibility */}
         <Route
           path="/addreminder"
           element={<ProtectedRoute element={<AddReminderPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
