@@ -110,9 +110,9 @@ def check_and_send_notifications(db: Session):
             # -------- PUSH --------
             if reminder.push_notification:
 
-                tokens = user_tokens.get(user_id, [])
+                fcm_tokens = user_tokens.get(user_id, [])
 
-                for token in tokens:
+                for fcm_token in fcm_tokens:
                     try:
                         data = {
                             "reminder_id": reminder.reminder_id,
@@ -122,7 +122,7 @@ def check_and_send_notifications(db: Session):
 
                         send_push_notification(
                             db=db,
-                            token=token,
+                            token=fcm_token,
                             title="Reminder",
                             body=f"{reminder.reminder_title}",
                             reminder_uuid=reminder.reminder_uuid,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -22,6 +22,7 @@ async def upload_document(
     category: str = Form(...),
     title: str = Form(...),
     expiry_date: str | None = Form(None),
+    notes: str | None = Form(None),
 
     file: UploadFile = File(...),
 
@@ -29,19 +30,38 @@ async def upload_document(
     current_user: User = Depends(get_current_user)
 ):
 
-    document = create_document_service(
-        db=db,
-        user_id=current_user.user_id,
-        user_uuid=str(current_user.user_uuid),
-        category=category,
-        title=title,
-        expiry_date=expiry_date,
-        file=file
-    )
+    if not title or len(title.strip()) < 3:
+        raise HTTPException(400, "Title must be at least 3 characters")
 
-    return {
-        "doc_uuid": str(document.doc_uuid)
-    }
+    if not category or not category.strip():
+        raise HTTPException(400, "Category is required")
+
+    expiry_parsed = None
+    if expiry_date and expiry_date.strip():
+        from datetime import datetime
+        try:
+            expiry_parsed = datetime.strptime(expiry_date.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(400, "Invalid expiry_date format. Use YYYY-MM-DD.")
+
+    try:
+        document = await create_document_service(
+            db=db,
+            user_id=current_user.user_id,
+            user_uuid=str(current_user.user_uuid),
+            category=category,
+            title=title,
+            expiry_date=expiry_parsed,
+            notes=notes,
+            file=file
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, str(e))
+
+    return {"doc_uuid": str(document.doc_uuid)}
 
 
 @router.get("/list")
@@ -49,7 +69,6 @@ def list_documents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     return list_documents_service(db, current_user.user_id)
 
 
@@ -59,12 +78,7 @@ def view_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
-    return get_document_file_service(
-        db,
-        doc_uuid,
-        current_user.user_id
-    )
+    return get_document_file_service(db, doc_uuid, current_user.user_id)
 
 
 @router.put("/{doc_uuid}")
@@ -75,6 +89,7 @@ async def update_document(
     category: str | None = Form(None),
     title: str | None = Form(None),
     expiry_date: str | None = Form(None),
+    notes: str | None = Form(None),
 
     file: UploadFile | None = File(None),
 
@@ -82,16 +97,27 @@ async def update_document(
     current_user: User = Depends(get_current_user)
 ):
 
-    doc = update_document_service(
-        db=db,
-        user_id=current_user.user_id,
-        doc_uuid=doc_uuid,
-        category=category,
-        title=title,
-        expiry_date=expiry_date,
-        file=file,
-        user_uuid=str(current_user.user_uuid)
-    )
+    # Validate title if provided
+    if title is not None and title.strip() and len(title.strip()) < 3:
+        raise HTTPException(400, "Title must be at least 3 characters")
+
+    try:
+        doc = await update_document_service(
+            db=db,
+            user_id=current_user.user_id,
+            doc_uuid=doc_uuid,
+            category=category,
+            title=title,
+            expiry_date=expiry_date,
+            notes=notes,
+            file=file if (file and file.filename) else None,
+            user_uuid=str(current_user.user_uuid)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, str(e))
 
     return {"doc_uuid": str(doc.doc_uuid)}
 
@@ -103,13 +129,14 @@ def delete_document(
 
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
-
 ):
 
-    delete_document_service(
-        db,
-        doc_uuid,
-        current_user.user_id
-    )
+    try:
+        delete_document_service(db, doc_uuid, current_user.user_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, str(e))
 
     return {"message": "Document deleted"}

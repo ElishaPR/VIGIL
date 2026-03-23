@@ -42,8 +42,6 @@ from app.core.security import (
 )
 
 from app.core.otp_security import verify_otp
-
-
 from app.services.email_verification_service import send_verification_email
 
 
@@ -76,46 +74,13 @@ def signup(
         )
 
     try:
-
-        with db.begin():
-
-            user = create_user(db, signup_data)
-
-            create_user_consents(db, user.user_id)
-
-            invalidate_previous_otps(db, user.user_id)
-
-            otp_record, otp = create_email_verification_otp(
-                db,
-                user.user_id
-            )
-
-        send_verification_email(
-            user.email_address,
-            user.display_name,
-            otp
-        )
-
-        access_token = create_access_token({
-            "user_id": user.user_id,
-            "user_uuid": str(user.user_uuid),
-            "email": user.email_address,
-            "type": "access"
-        })
-
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=True,
-            secure=False,  # True in production
-            samesite="lax",
-            max_age=ACCESS_TOKEN_EXPIRE_SECONDS
-        )
-
-        return SignUpUserResponse(
-            user_uuid=str(user.user_uuid),
-            display_name=user.display_name
-        )
+        # create_user uses flush() so no commit yet — session auto-begins
+        user = create_user(db, signup_data)
+        create_user_consents(db, user.user_id)
+        invalidate_previous_otps(db, user.user_id)
+        otp_record, otp = create_email_verification_otp(db, user.user_id)
+        db.commit()
+        db.refresh(user)
 
     except IntegrityError:
         db.rollback()
@@ -131,12 +96,42 @@ def signup(
             detail="Signup failed."
         )
 
+    try:
+        send_verification_email(
+            user.email_address,
+            user.display_name,
+            otp
+        )
+    except Exception:
+        pass  # email failure should not prevent signup
+
+    access_token = create_access_token({
+        "user_id": user.user_id,
+        "user_uuid": str(user.user_uuid),
+        "email": user.email_address,
+        "type": "access"
+    })
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_SECONDS
+    )
+
+    return SignUpUserResponse(
+        user_uuid=str(user.user_uuid),
+        display_name=user.display_name
+    )
+
 
 @router.post("/login", response_model=LoginUserResponse, status_code=200)
 def login(
-        login_data: LoginData,
-        response: Response,
-        db: Session = Depends(get_db)
+    login_data: LoginData,
+    response: Response,
+    db: Session = Depends(get_db)
 ):
 
     user = authenticate_user(db, login_data)
@@ -147,22 +142,11 @@ def login(
             detail="Invalid email or password."
         )
 
-    access_token = create_access_token({
-        "user_id": user.user_id,
-        "user_uuid": str(user.user_uuid),
-        "email": user.email_address,
-        "type": "access"
-    })
-
-
     if not user.email_verified:
 
         try:
             invalidate_previous_otps(db, user.user_id)
-            otp_record, otp = create_email_verification_otp(
-                db,
-                user.user_id
-            )
+            otp_record, otp = create_email_verification_otp(db, user.user_id)
             db.commit()
 
             send_verification_email(
@@ -184,7 +168,7 @@ def login(
             detail="Please verify your email."
         )
 
-
+    # Single token creation for verified users (B8 fix)
     access_token = create_access_token({
         "user_id": user.user_id,
         "user_uuid": str(user.user_uuid),
@@ -206,19 +190,35 @@ def login(
         display_name=user.display_name
     )
 
+
 @router.post("/logout", status_code=200)
 def logout(response: Response):
 
     response.delete_cookie(
         key="access_token",
         httponly=True,
-        secure=False,  # change to True in production
+        secure=False,
         samesite="lax"
     )
 
-    return {
-        "message": "Logged out successfully."
-    }
+    return {"message": "Logged out successfully."}
+
+
+@router.post("/logout-all", status_code=200)
+def logout_all(response: Response):
+    """
+    Logs out from all devices by clearing the current session cookie.
+    A full multi-device logout would require a token blacklist table in the DB.
+    """
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        secure=False,
+        samesite="lax"
+    )
+
+    return {"message": "Logged out from all devices."}
+
 
 @router.get("/me", response_model=UserProfileResponse)
 def get_current_user(
@@ -242,27 +242,6 @@ def get_current_user(
         "email_address": user.email_address
     }
 
-# @router.put("/me")
-# def update_profile(
-#     data: UpdateProfileData,
-#     token_data: dict = Depends(get_current_user_payload),
-#     db: Session = Depends(get_db)
-# ):
-
-#     user = db.query(User).filter(
-#         User.user_id == token_data["user_id"]
-#     ).first()
-
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-
-#     user.display_name = data.display_name
-
-#     db.commit()
-
-#     return {
-#         "message": "Profile updated successfully"
-#     }
 
 @router.put("/me", response_model=UpdateProfileResponse)
 def update_profile(
@@ -279,10 +258,10 @@ def update_profile(
         raise HTTPException(404, "User not found")
 
     user.display_name = data.display_name
-
     db.commit()
 
     return UpdateProfileResponse()
+
 
 @router.post("/change-email/request")
 def request_change_email(
@@ -312,13 +291,9 @@ def request_change_email(
             raise HTTPException(429, str(e))
 
     try:
-   
         invalidate_previous_otps(db, user.user_id)
-
         otp_record, otp = create_email_verification_otp(
-            db,
-            user.user_id,
-            new_email=data.new_email_address
+            db, user.user_id, new_email=data.new_email_address
         )
         db.commit()
 
@@ -326,18 +301,13 @@ def request_change_email(
         db.rollback()
         raise HTTPException(500, f"DB error: {str(e)}")
 
-
     try:
-        send_verification_email(
-            data.new_email_address,
-            user.display_name,
-            otp
-        )
+        send_verification_email(data.new_email_address, user.display_name, otp)
     except Exception as e:
-        print("EMAIL ERROR:", str(e))   
         raise HTTPException(500, f"Email failed: {str(e)}")
 
     return {"message": "OTP sent to new email"}
+
 
 @router.post("/change-email/verify")
 def verify_change_email(
@@ -356,9 +326,12 @@ def verify_change_email(
 
     if not otp_record:
         raise HTTPException(400, "No OTP found")
-    
+
     if not otp_record.new_email:
         raise HTTPException(400, "Invalid OTP data")
+
+    if otp_record.is_used:
+        raise HTTPException(400, "OTP already used")
 
     if otp_record.attempts >= MAX_ATTEMPTS:
         raise HTTPException(403, "Too many attempts")
@@ -374,9 +347,7 @@ def verify_change_email(
     try:
         user.email_address = otp_record.new_email
         user.email_verified = True
-
         otp_record.is_used = True
-
         db.commit()
 
     except IntegrityError:
@@ -400,15 +371,12 @@ def change_password(
     if not user:
         raise HTTPException(404, "User not found")
 
-    if not verify_password(
-        data.current_password,
-        user.hashed_password
-    ):
+    if not verify_password(data.current_password, user.hashed_password):
         raise HTTPException(
             status_code=400,
             detail="Current password is incorrect."
         )
-    
+
     if verify_password(data.new_password, user.hashed_password):
         raise HTTPException(
             status_code=400,
@@ -416,11 +384,7 @@ def change_password(
         )
 
     try:
-
-        user.hashed_password = password_hashing(
-            data.new_password
-        )
-
+        user.hashed_password = password_hashing(data.new_password)
         db.commit()
 
     except Exception:

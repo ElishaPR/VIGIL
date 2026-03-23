@@ -53,15 +53,10 @@ def send_email_verification(
         raise HTTPException(429, str(e))
 
     try:
-
-        with db.begin():
-
-            invalidate_previous_otps(db, user.user_id)
-
-            otp_record, otp = create_email_verification_otp(
-                db,
-                user.user_id
-            )
+        # Fix B12: use direct flush + commit instead of db.begin()
+        invalidate_previous_otps(db, user.user_id)
+        otp_record, otp = create_email_verification_otp(db, user.user_id)
+        db.commit()
 
         send_verification_email(
             user.email_address,
@@ -96,6 +91,10 @@ def verify_email(
     if not otp_record:
         raise HTTPException(400, "No verification code found.")
 
+    # B15: check is_used before verifying
+    if otp_record.is_used:
+        raise HTTPException(400, "Verification code already used.")
+
     if otp_record.attempts >= MAX_ATTEMPTS:
         raise HTTPException(403, "Too many failed attempts.")
 
@@ -103,15 +102,11 @@ def verify_email(
         raise HTTPException(400, "Verification code expired.")
 
     if not verify_otp(data.otp, otp_record.otp_hash):
-
         otp_record.attempts += 1
         db.commit()
-
         raise HTTPException(400, "Invalid verification code.")
 
     try:
-
-
         otp_record.is_used = True
         user.email_verified = True
         db.commit()

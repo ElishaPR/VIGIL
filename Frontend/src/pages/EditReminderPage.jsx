@@ -56,6 +56,7 @@ export function EditReminderPage() {
   const [priority, setPriority] = useState("medium");
   const [initialPushNotification, setInitialPushNotification] = useState(false);
   const [pushNotification, setPushNotification] = useState(false);
+  const [emailNotification, setEmailNotification] = useState(true);
   const [notes, setNotes] = useState("");
   const [filePreview, setFilePreview] = useState(null);
   const [showCropModal, setShowCropModal] = useState(false);
@@ -95,12 +96,14 @@ export function EditReminderPage() {
 
         if (response.ok) {
           const data = await response.json();
-          setReminderTitle(data.title);
-          setExpiryDate(data.expiry_date?.split("T")[0]);
-          setDocCategory(data.category);
-          setPriority(data.priority);
-          setPushNotification(data.enable_push ?? false);
-          setInitialPushNotification(data.enable_push ?? false);
+          // B2 fix: use correct field names from backend
+          setReminderTitle(data.reminder_title || "");
+          setExpiryDate(data.expiry_date ? data.expiry_date.split("T")[0] : "");
+          setDocCategory(data.category || "");
+          setPriority(data.priority || "medium");
+          setPushNotification(data.push_notification ?? false);
+          setInitialPushNotification(data.push_notification ?? false);
+          setEmailNotification(data.email_notification ?? true);
           setNotes(data.notes || "");
           setScheduleType(data.schedule_type || "default");
           setRepeatType(data.repeat_type || "none");
@@ -109,10 +112,9 @@ export function EditReminderPage() {
             setReminderAt(toLocalDateInput(data.reminder_at));
           }
 
-          // Check if category is custom
           if (!CATEGORY_OPTIONS.find((c) => c.id === data.category)) {
             setIsCustomCategory(true);
-            setCustomCategory(data.category);
+            setCustomCategory(data.category || "");
           }
 
           // Set file preview if document exists
@@ -287,14 +289,16 @@ export function EditReminderPage() {
       const finalCategory = isCustomCategory ? customCategory.trim() : docCategory;
 
       formData.append("category", finalCategory);
-      formData.append("title", reminderTitle.trim());
-
-      formData.append("expiry_date", toUTCISOString(expiryDate, "23:59:59"));
+      // F2 fix: field name must match backend PUT schema
+      formData.append("reminder_title", reminderTitle.trim());
+      // F3 fix: send date only as YYYY-MM-DD, not ISO with time
+      if (expiryDate) formData.append("expiry_date", expiryDate);
 
       formData.append("schedule_type", scheduleType);
       formData.append("repeat_type", repeatType);
       formData.append("priority", priority);
       formData.append("enable_push", pushNotification ? "true" : "false");
+      formData.append("email_notification", emailNotification ? "true" : "false");
       const pushJustEnabled = !initialPushNotification && pushNotification;
       if (pushJustEnabled) {
 
@@ -561,8 +565,11 @@ export function EditReminderPage() {
                   }
                 }}
                 placeholder="Reminder title"
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-navy-500 outline-none"
+                className={`w-full px-4 py-3 rounded-xl border ${errors.title ? "border-red-300" : "border-gray-300"} focus:border-navy-500 outline-none`}
               />
+              {errors.title && (
+                <p className="text-red-600 text-sm mt-1">{errors.title}</p>
+              )}
 
               <input
                 type="date"
@@ -576,8 +583,11 @@ export function EditReminderPage() {
                     setReminderAt("");
                   }
                 }}
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-navy-500 outline-none"
+                className={`w-full px-4 py-3 rounded-xl border ${errors.expiryDate ? "border-red-300" : "border-gray-300"} focus:border-navy-500 outline-none`}
               />
+              {errors.expiryDate && (
+                <p className="text-red-600 text-sm mt-1">{errors.expiryDate}</p>
+              )}
             </div>
           </section>
 
@@ -604,14 +614,19 @@ export function EditReminderPage() {
             </select>
 
             {scheduleType === "custom" && (
-              <input
-                type="date"
-                value={reminderAt}
-                min={getMinDate()}
-                max={expiryDate || undefined}
-                onChange={(e) => setReminderAt(e.target.value)}
-                className="w-full mt-4 px-4 py-3 rounded-xl border border-gray-300 focus:border-navy-500 outline-none"
-              />
+              <div className="mt-4">
+                <input
+                  type="date"
+                  value={reminderAt}
+                  min={getMinDate()}
+                  max={expiryDate || undefined}
+                  onChange={(e) => setReminderAt(e.target.value)}
+                  className={`w-full px-4 py-3 rounded-xl border ${errors.reminderAt ? "border-red-300" : "border-gray-300"} focus:border-navy-500 outline-none`}
+                />
+                {errors.reminderAt && (
+                  <p className="text-red-600 text-sm mt-1">{errors.reminderAt}</p>
+                )}
+              </div>
             )}
           </section>
 
@@ -644,24 +659,31 @@ export function EditReminderPage() {
             </select>
           </section>
 
-          {/* Push Notifications */}
+          {/* Notifications */}
           <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-800">Push Notifications</span>
-
-              <button
-                type="button"
-                onClick={() => setPushNotification(!pushNotification)}
-                className={`w-12 h-6 rounded-full transition-colors ${
-                  pushNotification ? "bg-navy-600" : "bg-gray-300"
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
-                    pushNotification ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Notifications</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-gray-800">Push Notifications</span>
+                  <p className="text-xs text-gray-500 mt-0.5">Requires at least one notification method</p>
+                </div>
+                <button type="button" onClick={() => setPushNotification(!pushNotification)} className={`w-12 h-6 rounded-full transition-colors ${pushNotification ? "bg-navy-600" : "bg-gray-300"}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${pushNotification ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-gray-800">Email Notifications</span>
+                  <p className="text-xs text-gray-500 mt-0.5">Receive reminder via email</p>
+                </div>
+                <button type="button" onClick={() => setEmailNotification(!emailNotification)} className={`w-12 h-6 rounded-full transition-colors ${emailNotification ? "bg-navy-600" : "bg-gray-300"}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${emailNotification ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              {!pushNotification && !emailNotification && (
+                <p className="text-xs text-red-500">At least one notification method must be enabled.</p>
+              )}
             </div>
           </section>
 
@@ -672,8 +694,11 @@ export function EditReminderPage() {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Notes"
               rows="4"
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-navy-500 outline-none"
+              className={`w-full px-4 py-3 rounded-xl border ${errors.notes ? "border-red-300" : "border-gray-300"} focus:border-navy-500 outline-none`}
             />
+            {errors.notes && (
+              <p className="text-red-600 text-sm mt-1">{errors.notes}</p>
+            )}
           </section>
 
           {/* Document */}

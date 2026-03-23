@@ -15,7 +15,7 @@ class Reminder(Base):
     __table_args__ = (
         CheckConstraint(
             "(email_notification = TRUE OR push_notification = TRUE)",
-            name="check_notification_required"
+            name="reminders_check"
         ),
     )
 

@@ -3,10 +3,23 @@ from datetime import datetime, timedelta, time
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 import pytz
+
 from app.models.reminders import Reminder
-from app.crud.reminders import create_reminder as crud_create_reminder, get_reminder_by_uuid, update_reminder, delete_reminder
+from app.models.documents import Document
+from app.crud.reminders import (
+    create_reminder as crud_create_reminder,
+    get_reminder_by_uuid,
+    update_reminder,
+    delete_reminder
+)
+
 DEFAULT_REMINDER_HOUR = 9
 DEFAULT_REMINDER_MINUTE = 0
+
+VALID_SCHEDULE_TYPES = ["DEFAULT", "CUSTOM"]
+VALID_REPEAT_TYPES = ["NONE", "WEEKLY", "MONTHLY", "YEARLY"]
+VALID_PRIORITIES = ["LOW", "MEDIUM", "HIGH"]
+
 
 def get_now_utc():
     return datetime.now(pytz.UTC)
@@ -24,27 +37,10 @@ def adjust_if_today_past(reminder_local, user_timezone):
     now_local = datetime.now(user_timezone)
 
     if reminder_local.date() == now_local.date() and reminder_local <= now_local:
-        # move to next 5 minutes
         adjusted = now_local + timedelta(minutes=5)
         return adjusted
 
     return reminder_local
-
-
-VALID_SCHEDULE_TYPES = ["DEFAULT", "CUSTOM"]
-
-VALID_REPEAT_TYPES = [
-    "NONE",
-    "WEEKLY",
-    "MONTHLY",
-    "YEARLY"
-]
-
-VALID_PRIORITIES = [
-    "LOW",
-    "MEDIUM",
-    "HIGH"
-]
 
 
 def create_reminder_service(
@@ -61,14 +57,15 @@ def create_reminder_service(
     enable_push: bool,
     user_timezone
 ):
+    # -------- VALIDATIONS --------
+    if not title or len(title.strip()) < 3:
+        raise HTTPException(400, "Reminder title must be at least 3 characters")
 
     now_utc = datetime.now(pytz.UTC)
-
     schedule_type = schedule_type.upper()
     repeat_type = repeat_type.upper()
     priority = priority.upper()
 
-    # -------- VALIDATIONS --------
     if schedule_type not in VALID_SCHEDULE_TYPES:
         raise HTTPException(400, "Invalid schedule type")
 
@@ -79,16 +76,12 @@ def create_reminder_service(
         raise HTTPException(400, "Invalid priority")
 
     # -------- EXPIRY --------
-    expiry_local = datetime.combine(
-        expiry_date,
-        time(9, 0)
-    )
+    expiry_local = datetime.combine(expiry_date, time(9, 0))
     expiry_local = user_timezone.localize(expiry_local)
     expiry_utc = expiry_local.astimezone(pytz.UTC)
 
-    # -------- DEFAULT LOGIC FIX --------
+    # -------- REMINDER TIME LOGIC --------
     if schedule_type == "DEFAULT":
-
         today_local = datetime.now(user_timezone).date()
 
         if expiry_date == today_local:
@@ -99,16 +92,16 @@ def create_reminder_service(
         reminder_local = adjust_if_today_past(reminder_local, user_timezone)
         reminder_utc = reminder_local.astimezone(pytz.UTC)
 
-    else:
+    else:  # CUSTOM
         if not reminder_at:
-            raise HTTPException(400, "Custom reminder required")
+            raise HTTPException(400, "Custom reminder date is required")
 
         reminder_local = reminder_at.astimezone(user_timezone)
         reminder_local = adjust_if_today_past(reminder_local, user_timezone)
         reminder_utc = reminder_local.astimezone(pytz.UTC)
 
     if reminder_utc <= now_utc:
-        raise HTTPException(400, "Reminder still in past")
+        raise HTTPException(400, "Reminder time is in the past")
 
     reminder = crud_create_reminder(
         db=db,
@@ -121,7 +114,8 @@ def create_reminder_service(
         repeat_type=repeat_type,
         priority=priority,
         notes=notes,
-        enable_push=enable_push
+        enable_push=enable_push,
+        email_notification=True   # always on by default
     )
 
     return reminder
@@ -136,9 +130,13 @@ def update_reminder_service(
     repeat_type,
     priority,
     notes,
-    enable_push
+    push_notification,
+    email_notification,
+    reminder_title=None,
+    category=None,
+    expiry_date=None,
+    expiry_date_provided=False
 ):
-
     reminder = db.query(Reminder).filter(
         Reminder.reminder_uuid == reminder_uuid,
         Reminder.user_id == user_id
@@ -147,22 +145,51 @@ def update_reminder_service(
     if not reminder:
         raise HTTPException(404, "Reminder not found")
 
+    if reminder_title and reminder_title.strip():
+        reminder.reminder_title = reminder_title.strip()
+
     if reminder_at:
         reminder.reminder_at = reminder_at.astimezone(pytz.UTC)
 
     if schedule_type:
-        reminder.schedule_type = schedule_type.upper()
+        st = schedule_type.upper()
+        if st not in VALID_SCHEDULE_TYPES:
+            raise HTTPException(400, "Invalid schedule type")
+        reminder.schedule_type = st
 
     if repeat_type:
-        reminder.repeat_type = repeat_type.upper()
+        rt = repeat_type.upper()
+        if rt not in VALID_REPEAT_TYPES:
+            raise HTTPException(400, "Invalid repeat type")
+        reminder.repeat_type = rt
 
     if priority:
-        reminder.priority = priority.upper()
+        p = priority.upper()
+        if p not in VALID_PRIORITIES:
+            raise HTTPException(400, "Invalid priority")
+        reminder.priority = p
 
     reminder.notes = notes
-    reminder.push_notification = enable_push
+    reminder.push_notification = push_notification
+    reminder.email_notification = email_notification
+
+    # Enforce at-least-one-notification rule
+    if not reminder.email_notification and not reminder.push_notification:
+        raise HTTPException(400, "At least one notification method (email or push) must be enabled")
+
+    # Update associated document if linked
+    if reminder.doc_id:
+        doc = db.query(Document).filter(Document.doc_id == reminder.doc_id).first()
+        if doc:
+            if category and category.strip():
+                doc.doc_category = category.strip()
+            if reminder_title and reminder_title.strip():
+                doc.doc_title = reminder_title.strip()
+            if expiry_date_provided:
+                doc.expiry_date = expiry_date
 
     return update_reminder(db, reminder)
+
 
 def delete_reminder_service(db, reminder_uuid, user_id):
 
@@ -176,8 +203,8 @@ def delete_reminder_service(db, reminder_uuid, user_id):
 
     delete_reminder(db, reminder)
 
+
 def get_reminder_by_uuid_service(db, reminder_uuid, user_id):
-    from app.models.reminders import Reminder
 
     reminder = (
         db.query(Reminder)
@@ -189,6 +216,6 @@ def get_reminder_by_uuid_service(db, reminder_uuid, user_id):
     )
 
     if not reminder:
-        raise Exception("Reminder not found")
+        raise HTTPException(404, "Reminder not found")
 
     return reminder

@@ -5,22 +5,24 @@ from app.models.documents import Document
 def create_document(
     db: Session,
     user_id: int,
-    doc_uuid: str,
+    doc_uuid,
     category: str,
     title: str,
     doc_size: int,
     expiry_date,
+    notes: str | None,
     mime_type: str,
     storage_key: str
 ):
 
     document = Document(
         user_id=user_id,
-        doc_uuid=doc_uuid,
+        doc_uuid=doc_uuid if doc_uuid else None,  # ✅ FIX
         doc_category=category,
         doc_title=title,
         doc_size=doc_size,
         expiry_date=expiry_date,
+        notes=notes,
         mime_type=mime_type,
         storage_key=storage_key
     )

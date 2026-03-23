@@ -31,13 +31,10 @@ const REPEAT_OPTIONS = [
 
 const MAX_FILE_SIZE_MB = 10;
 
-// Convert date (yyyy-mm-dd) to LOCAL ISO (no Z)
-const toLocalISOString = (dateStr, time = "09:00:00") => {
+// Convert date (yyyy-mm-dd) to UTC ISO
+const toUTCISOString = (dateStr, time = "09:00:00") => {
   const local = new Date(`${dateStr}T${time}`);
-  
-  const pad = (n) => String(n).padStart(2, "0");
-
-  return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}`;
+  return local.toISOString(); // Correct timezone offset handling natively
 };
 
 export function AddReminderPage() {
@@ -318,10 +315,10 @@ export function AddReminderPage() {
 
       if (scheduleType === "custom" && reminderAt) {
 
-        // Send LOCAL datetime (NO toISOString)
-        const reminderLocal = toLocalISOString(reminderAt, "09:00:00");
+        // Send UTC time based on the selected local time
+        const reminderUtc = toUTCISOString(reminderAt, "09:00:00");
 
-        formData.append("reminder_at", reminderLocal);
+        formData.append("reminder_at", reminderUtc);
       }
 
       if (notes.trim()) {

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.crud.dashboard import get_user_reminders_dashboard
@@ -9,7 +9,7 @@ def calculate_status(expiry_date):
     if not expiry_date:
         return "no_expiry"
 
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
 
     if expiry_date < today:
         return "expired"
@@ -48,12 +48,14 @@ def get_dashboard_reminders_service(db: Session, user_id: int):
         status = calculate_status(expiry)
 
         reminders.append({
-            "id": reminder.reminder_id,
+            "reminder_uuid": str(reminder.reminder_uuid),
             "title": title,
             "category": category,
-            "expiryDate": expiry,
+            "expiry_date": expiry.isoformat() if expiry else None,
             "priority": format_priority(reminder.priority),
-            "status": status
+            "status": status,
+            "push_notification": reminder.push_notification,
+            "email_notification": reminder.email_notification,
         })
 
     return reminders

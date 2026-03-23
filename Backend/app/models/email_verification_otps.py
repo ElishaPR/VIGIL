@@ -14,5 +14,5 @@ class EmailVerificationOTP(Base):
     is_used = Column(Boolean, nullable=False, server_default=func.false())
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     attempts = Column(Integer, nullable=False, server_default="0")
-    last_sent_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    last_sent_at = Column(DateTime(timezone=True), nullable=True, server_default=func.now())
     new_email = Column(CITEXT, nullable=True)

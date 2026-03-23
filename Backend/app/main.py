@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import os
 import app.firebase_config
-from app.routers import users, email_verification, password_reset, reminders, fcm_router
+from app.routers import users, email_verification, password_reset, reminders, fcm_router, documents, admin
 from fastapi.middleware.cors import CORSMiddleware
 from app.scheduler.scheduler import lifespan
 
@@ -26,6 +26,9 @@ app.include_router(email_verification.router)
 app.include_router(password_reset.router)
 app.include_router(reminders.router)
 app.include_router(fcm_router.router)
+app.include_router(documents.router)
+app.include_router(admin.router)
+
 @app.get("/")
 def root():
     return {"message": "Vigil Backend"}

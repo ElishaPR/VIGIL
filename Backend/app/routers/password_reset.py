@@ -41,17 +41,10 @@ def forgot_password(data: ForgotPasswordData, db: Session = Depends(get_db)):
         return ForgotPasswordResponse()
 
     try:
-
-
         invalidate_previous_reset_otps(db, user.user_id)
+        otp_record, otp = create_password_reset_otp(db, user.user_id)
+        db.commit()
 
-        otp_record, otp = create_password_reset_otp(
-            db,
-            user.user_id
-        )
-
-        db.commit() 
-        
         send_password_reset_email(
             user.email_address,
             user.display_name,
@@ -79,17 +72,20 @@ def verify_reset_otp(data: VerifyResetOTPData, db: Session = Depends(get_db)):
     if not otp_record:
         raise HTTPException(400, "No reset code found.")
 
+    # B15: check is_used before verifying
+    if otp_record.is_used:
+        raise HTTPException(400, "Reset code already used.")
+
     if otp_record.attempts >= MAX_ATTEMPTS:
         raise HTTPException(403, "Too many attempts.")
 
+    # B7 fix: check expiry BEFORE hash verify
     if datetime.now(timezone.utc) > otp_record.expires_at:
         raise HTTPException(400, "Reset code expired.")
 
     if not verify_otp(data.otp, otp_record.otp_hash):
-
         otp_record.attempts += 1
         db.commit()
-
         raise HTTPException(400, "Invalid code.")
 
     return VerifyResetOTPResponse()
@@ -110,18 +106,20 @@ def reset_password(data: ResetPasswordData, db: Session = Depends(get_db)):
     if not otp_record:
         raise HTTPException(400, "Invalid request.")
 
-    if not verify_otp(data.otp, otp_record.otp_hash):
-        raise HTTPException(400, "Invalid code.")
+    # B15: check is_used
+    if otp_record.is_used:
+        raise HTTPException(400, "Reset code already used.")
 
+    # B7 fix: expiry check + is_used check BEFORE hash verify
     if datetime.now(timezone.utc) > otp_record.expires_at:
         raise HTTPException(400, "Reset code expired.")
 
+    if not verify_otp(data.otp, otp_record.otp_hash):
+        raise HTTPException(400, "Invalid code.")
+
     try:
-
         user.hashed_password = password_hashing(data.new_password)
-
         otp_record.is_used = True
-
         db.commit()
 
     except Exception:

@@ -3,8 +3,14 @@ from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
 from app.services.supabase_service import upload_file, delete_file, replace_file, get_signed_url
-from app.services.encryption_service import encrypt_file, decrypt_file
-from app.crud.documents import create_document as crud_create_document, get_document_by_uuid, get_user_documents, update_document, delete_document
+from app.services.encryption_service import encrypt_file
+from app.crud.documents import (
+    create_document as crud_create_document,
+    get_document_by_uuid,
+    get_user_documents,
+    update_document,
+    delete_document
+)
 from app.core.config import settings
 
 
@@ -23,54 +29,41 @@ ALLOWED_MIME_TYPES = [
 
 
 def validate_file(file: UploadFile):
-
     if file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(400, "Unsupported file type")
 
 
 def generate_storage_key(user_uuid: str, doc_uuid: str, extension: str):
-
     return f"documents/{user_uuid}/{doc_uuid}.{extension}"
 
 
-def create_document_service(
+async def create_document_service(
     db: Session,
     user_id: int,
     user_uuid: str,
     category: str,
     title: str,
     expiry_date,
+    notes: str | None,
     file: UploadFile
 ):
-
     validate_file(file)
 
-    contents = file.file.read()
+    contents = await file.read()
 
     size_bytes = len(contents)
-
     size_mb = size_bytes / (1024 * 1024)
 
     if size_mb > settings.MAX_FILE_SIZE_MB:
         raise HTTPException(400, "File too large")
 
     doc_uuid = str(uuid.uuid4())
-
-    extension = file.filename.split(".")[-1]
-
-    storage_key = generate_storage_key(
-        user_uuid,
-        doc_uuid,
-        extension
-    )
+    extension = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin"
+    storage_key = generate_storage_key(user_uuid, doc_uuid, extension)
 
     encrypted_file = encrypt_file(contents)
 
-    upload_file(
-        storage_key,
-        encrypted_file,
-        file.content_type
-    )
+    upload_file(storage_key, encrypted_file, file.content_type)
 
     document = crud_create_document(
         db=db,
@@ -80,6 +73,7 @@ def create_document_service(
         title=title.strip(),
         doc_size=size_bytes,
         expiry_date=expiry_date,
+        notes=notes,
         mime_type=file.content_type,
         storage_key=storage_key
     )
@@ -87,15 +81,23 @@ def create_document_service(
     return document
 
 
-
-
 def list_documents_service(db, user_id):
-
-    return get_user_documents(db, user_id)
+    docs = get_user_documents(db, user_id)
+    return [
+        {
+            "doc_uuid": str(d.doc_uuid),
+            "doc_title": d.doc_title,
+            "doc_category": d.doc_category,
+            "doc_size": d.doc_size,
+            "mime_type": d.mime_type,
+            "expiry_date": d.expiry_date.isoformat() if d.expiry_date else None,
+            "created_at": d.created_at.isoformat(),
+        }
+        for d in docs
+    ]
 
 
 def get_document_file_service(db, doc_uuid, user_id):
-
     document = get_document_by_uuid(db, doc_uuid, user_id)
 
     if not document:
@@ -104,62 +106,70 @@ def get_document_file_service(db, doc_uuid, user_id):
     url = get_signed_url(document.storage_key)
 
     return {
-        "doc_uuid": doc_uuid,
+        "doc_uuid": str(document.doc_uuid),
+        "doc_title": document.doc_title,
+        "doc_category": document.doc_category,
+        "expiry_date": document.expiry_date.isoformat() if document.expiry_date else None,
+        "mime_type": document.mime_type,
         "url": url
     }
 
 
 def delete_document_service(db, doc_uuid, user_id):
-
     document = get_document_by_uuid(db, doc_uuid, user_id)
 
     if not document:
         raise HTTPException(404, "Document not found")
 
     delete_file(document.storage_key)
-
     delete_document(db, document)
 
 
-def update_document_service(
+async def update_document_service(
     db,
     user_id,
     doc_uuid,
     category,
     title,
-    expiry_date,
+    expiry_date,       # None means "not sent" — don't change; "" means clear
+    notes,
     file,
     user_uuid
 ):
-
     document = get_document_by_uuid(db, doc_uuid, user_id)
 
     if not document:
         raise HTTPException(404, "Document not found")
 
     if file:
-
         validate_file(file)
-
-        contents = file.file.read()
-
+        contents = await file.read()
         encrypted = encrypt_file(contents)
-
-        replace_file(
-            document.storage_key,
-            encrypted,
-            file.content_type
-        )
-
+        replace_file(document.storage_key, encrypted, file.content_type)
         document.doc_size = len(contents)
         document.mime_type = file.content_type
 
     if category:
-        document.doc_category = category
+        document.doc_category = category.strip()
 
     if title:
-        document.doc_title = title
+        document.doc_title = title.strip()
 
-    document.expiry_date = expiry_date
+    if notes is not None:
+        document.notes = notes.strip() if notes else None
+
+    # Only update expiry_date when explicitly sent:
+    # None  → field was not sent at all → don't touch
+    # ""    → field sent as empty string → clear expiry_date
+    # "..." → valid date string → parse and update
+    if expiry_date is not None:
+        if expiry_date == "":
+            document.expiry_date = None
+        else:
+            from datetime import datetime
+            try:
+                document.expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(400, "Invalid expiry_date format. Use YYYY-MM-DD.")
 
     return update_document(db, document)

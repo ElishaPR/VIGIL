@@ -13,9 +13,9 @@ def create_reminder(
     repeat_type: str,
     priority: str,
     notes: str | None,
-    enable_push: bool
+    enable_push: bool,
+    email_notification: bool = True
 ):
-
     reminder = Reminder(
         reminder_uuid=reminder_uuid,
         user_id=user_id,
@@ -26,7 +26,8 @@ def create_reminder(
         repeat_type=repeat_type,
         priority=priority,
         notes=notes,
-        push_notification=enable_push
+        push_notification=enable_push,
+        email_notification=email_notification
     )
 
     db.add(reminder)
@@ -34,6 +35,7 @@ def create_reminder(
     db.refresh(reminder)
 
     return reminder
+
 
 def get_reminder_by_uuid(db: Session, reminder_uuid: str):
 

@@ -10,8 +10,10 @@ import { DashboardPage } from "./pages/DashboardPage.jsx";
 import { AddReminderPage } from "./pages/AddReminderPage.jsx";
 import { EditReminderPage } from "./pages/EditReminderPage.jsx";
 import { UploadDocumentPage } from "./pages/UploadDocumentPage.jsx";
+import { EditDocumentPage } from "./pages/EditDocumentPage.jsx";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage.jsx";
 import { UserProfilePage } from "./pages/UserProfilePage.jsx";
+import { AdminPage } from "./pages/AdminPage.jsx";
 import { NotFoundPage } from "./pages/NotFoundPage.jsx";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
@@ -50,22 +52,14 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-
     const checkAuth = async () => {
-
       try {
-
         const response = await fetch(
           "http://localhost:8000/users/me",
           { credentials: "include" }
         );
 
-        if (response.ok) {
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-        }
-
+        setIsAuthenticated(response.ok);
       } catch {
         setIsAuthenticated(false);
       }
@@ -74,14 +68,10 @@ function App() {
     };
 
     checkAuth();
-
   }, []);
 
   useEffect(() => {
-
     const unsubscribe = onMessage(messaging, (payload) => {
-      console.log("Foreground message received:", payload);
-
       const title = payload.notification?.title;
       const body = payload.notification?.body;
 
@@ -94,7 +84,6 @@ function App() {
     });
 
     return () => unsubscribe();
-
   }, []);
 
   return (
@@ -136,6 +125,14 @@ function App() {
         <Route
           path="/uploaddocument"
           element={<ProtectedRoute element={<UploadDocumentPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
+        />
+        <Route
+          path="/editdocument/:docUuid"
+          element={<ProtectedRoute element={<EditDocumentPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
+        />
+        <Route
+          path="/admin/notifications"
+          element={<ProtectedRoute element={<AdminPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
