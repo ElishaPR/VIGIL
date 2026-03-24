@@ -155,6 +155,7 @@ async def create_reminder_api(
                 title=title,
                 doc_size=0,
                 expiry_date=expiry_date_parsed,
+                notes=notes,
                 mime_type="text/plain",
                 storage_key=f"virtual/{current_user.user_id}/{uuid.uuid4()}"
             )

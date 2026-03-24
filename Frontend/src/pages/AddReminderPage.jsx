@@ -288,7 +288,10 @@ export function AddReminderPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
 
     setLoading(true);
     clearError("api");
