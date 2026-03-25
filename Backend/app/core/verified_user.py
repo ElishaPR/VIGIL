@@ -1,8 +1,8 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.database import get_db
+from app.core.database import get_db
 from app.core.security import get_current_user_payload
-from app.models.users import User
+from app.modules.user.models.users import User
 
 
 def require_verified_user(

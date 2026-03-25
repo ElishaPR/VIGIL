@@ -87,46 +87,60 @@ export function AdminPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 mb-6">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Status:</label>
-            <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-white">
-              {STATUS_OPTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${statusFilter === s ? "bg-navy-900 text-white" : "text-gray-600 hover:bg-gray-50"}`}
-                >
-                  {s === "all" ? "All" : s}
-                </button>
-              ))}
+        {/* Filters and Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Status:</label>
+              <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-white">
+                {STATUS_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setStatusFilter(s)}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${statusFilter === s ? "bg-navy-900 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    {s === "all" ? "All" : s}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Channel:</label>
-            <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-white">
-              {CHANNEL_OPTIONS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setChannelFilter(c)}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${channelFilter === c ? "bg-navy-900 text-white" : "text-gray-600 hover:bg-gray-50"}`}
-                >
-                  {c === "all" ? "All" : c}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Channel:</label>
+              <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-white">
+                {CHANNEL_OPTIONS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setChannelFilter(c)}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${channelFilter === c ? "bg-navy-900 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    {c === "all" ? "All" : c}
+                  </button>
+                ))}
+              </div>
             </div>
+            <button
+              onClick={() => fetchLogs(page)}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+            >
+              <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
           </div>
-          <button
-            onClick={() => fetchLogs(page)}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
-          >
-            <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
-          </button>
+
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={() => window.open("https://mail.zoho.in", "_blank")}
+              className="px-4 py-2 bg-navy-600 text-white rounded-xl text-sm font-semibold hover:bg-navy-700 transition-colors shadow-sm"
+            >
+              Open Feedback Inbox
+            </button>
+            <p className="text-[10px] text-gray-400">
+              Feedback messages are received at elishapr36@zohomail.in
+            </p>
+          </div>
         </div>
 
         {/* Error */}

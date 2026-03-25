@@ -34,7 +34,7 @@ const MAX_FILE_SIZE_MB = 10;
 // Convert date (yyyy-mm-dd) to UTC ISO
 const toUTCISOString = (dateStr, time = "09:00:00") => {
   const local = new Date(`${dateStr}T${time}`);
-  return local.toISOString(); // Correct timezone offset handling natively
+  return local.toISOString().replace("Z", "+00:00"); // Fix for Python 3.10 fromisoformat
 };
 
 export function AddReminderPage() {
@@ -241,7 +241,7 @@ export function AddReminderPage() {
     if (!expiryDate) {
       newErrors.expiryDate = "Expiry date is required.";
     } else {
-      const expiry = new Date(expiryDate);
+      const expiry = new Date(`${expiryDate}T00:00:00`);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (expiry < today) {
@@ -266,8 +266,8 @@ export function AddReminderPage() {
           newErrors.reminderAt = "Reminder date cannot be in the past.";
         }
 
-        if (reminder >= expiry) {
-          newErrors.reminderAt = "Reminder must be before expiry date.";
+        if (reminder > expiry) {
+          newErrors.reminderAt = "Reminder must be before or on expiry date.";
         }
 
       }
@@ -652,7 +652,7 @@ export function AddReminderPage() {
                   min={getMinDate()}
                   onChange={(e) => {
                     setExpiryDate(e.target.value);
-                    const expiry = new Date(e.target.value);
+                    const expiry = new Date(e.target.value + "T00:00:00");
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
                     if (e.target.value && expiry >= today) {
@@ -669,7 +669,7 @@ export function AddReminderPage() {
                     if (!expiryDate) {
                       updateError("expiryDate", "Expiry date is required.");
                     } else {
-                      const expiry = new Date(expiryDate);
+                      const expiry = new Date(expiryDate + "T00:00:00");
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
                       if (expiry < today) {
@@ -788,8 +788,8 @@ export function AddReminderPage() {
                     now.setHours(0, 0, 0, 0);
                     if (reminder < now) {
                       updateError("reminderAt", "Reminder date cannot be in the past.");
-                    } else if (reminder >= expiry) {
-                      updateError("reminderAt", "Reminder must be before expiry date.");
+                    } else if (reminder > expiry) {
+                      updateError("reminderAt", "Reminder must be before or on expiry date.");
                     } else {
                       clearError("reminderAt");
                     }

@@ -28,7 +28,7 @@ const REPEAT_OPTIONS = [
 // Convert date (yyyy-mm-dd) to LOCAL ISO (no Z)
 const toUTCISOString = (dateStr, time = "09:00:00") => {
   const local = new Date(`${dateStr}T${time}`);
-  return local.toISOString(); // THIS is correct
+  return local.toISOString().replace("Z", "+00:00"); // Fix for Python 3.10 fromisoformat
 };
 
 // Convert UTC → local date (yyyy-mm-dd) for input fields
@@ -236,7 +236,7 @@ export function EditReminderPage() {
     if (!expiryDate) {
       newErrors.expiryDate = "Expiry date is required.";
     } else {
-      const expiry = new Date(expiryDate);
+      const expiry = new Date(`${expiryDate}T00:00:00`);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (expiry < today) {
@@ -257,8 +257,8 @@ export function EditReminderPage() {
           newErrors.reminderAt = "Reminder date cannot be in the past.";
         }
 
-        if (reminder >= expiry) {
-          newErrors.reminderAt = "Reminder must be before expiry date.";
+        if (reminder > expiry) {
+          newErrors.reminderAt = "Reminder must be before or on expiry date.";
         }
       }
     }
