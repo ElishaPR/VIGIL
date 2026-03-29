@@ -102,6 +102,7 @@ export function EditReminderPage() {
 
         if (response.ok) {
           const data = await response.json();
+          console.log("Full reminder response:", data);
           // B2 fix: use correct field names from backend
           setReminderTitle(data.reminder_title || "");
           setDocCategory(data.category || "");
@@ -135,6 +136,12 @@ export function EditReminderPage() {
             const docUuid = urlParts[urlParts.length - 1];
             setExistingDocumentUuid(docUuid);
             
+            console.log("Document extraction:", {
+              full_url: data.document_url,
+              extracted_uuid: docUuid,
+              document_name: data.document_name
+            });
+            
             // Set file type based on document name
             if (data.document_name.endsWith(".pdf")) {
               setFileType("pdf");
@@ -149,13 +156,11 @@ export function EditReminderPage() {
             } else {
               setFileType("file");
             }
-            
-            console.log("Document detected:", {
-              url: data.document_url,
-              name: data.document_name,
-              uuid: docUuid,
-              type: fileType
-            });
+          } else {
+            console.log("No document found in reminder response");
+            setExistingDocumentUuid(null);
+            setFilePreview(null);
+            setFileType(null);
           }
         } else {
           updateError("api", "Failed to load reminder");
@@ -927,6 +932,9 @@ export function EditReminderPage() {
                 </svg>
                 Current Document
               </h2>
+              <div className="text-xs text-gray-500 mb-2">
+                Debug: UUID = {existingDocumentUuid}
+              </div>
               <DocumentPreview 
                 documentUuid={existingDocumentUuid} 
                 onRemove={removeExistingDocument}
