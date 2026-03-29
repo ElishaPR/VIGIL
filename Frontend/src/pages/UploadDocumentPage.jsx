@@ -121,6 +121,7 @@ export function UploadDocumentPage() {
     e.preventDefault();
 
     if (!validateForm()) {
+      updateError("api", "Please fill in all required fields correctly.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -141,7 +142,7 @@ export function UploadDocumentPage() {
       }
 
       if (uploadedFile) {
-        formData.append("document", uploadedFile);
+        formData.append("file", uploadedFile);
       }
 
       const response = await fetch("http://localhost:8000/documents/upload", {

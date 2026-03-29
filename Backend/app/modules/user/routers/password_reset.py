@@ -115,6 +115,8 @@ def reset_password(data: ResetPasswordData, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Reset code expired.")
 
     if not verify_otp(data.otp, otp_record.otp_hash):
+        otp_record.attempts += 1
+        db.commit()
         raise HTTPException(status_code=400, detail="Invalid code.")
 
     try:

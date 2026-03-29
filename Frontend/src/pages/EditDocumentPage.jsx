@@ -18,7 +18,6 @@ export function EditDocumentPage() {
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
   const [title, setTitle] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
   const [uploadedFile, setUploadedFile] = useState(null);
   const [existingFileName, setExistingFileName] = useState(null);
 
@@ -35,10 +34,20 @@ export function EditDocumentPage() {
       try {
         setLoading(true);
         const res = await fetch(`http://localhost:8000/documents/${docUuid}`, { credentials: "include" });
-        if (!res.ok) throw new Error("Document not found");
+        if (!res.ok) {
+          if (res.status === 401) {
+            setError("api", "Authentication required. Please login again.");
+          } else if (res.status === 404) {
+            setError("api", "Document not found.");
+          } else {
+            setError("api", `Failed to load document: ${res.status}`);
+          }
+          return;
+        }
         const data = await res.json();
+        console.log("Document data:", data); // Debug log
+        
         setTitle(data.doc_title || "");
-        setExpiryDate(data.expiry_date ? data.expiry_date.split("T")[0] : "");
         const cat = (data.doc_category || "").toLowerCase();
         if (CATEGORY_OPTIONS.find((c) => c.id === cat)) {
           setCategory(cat);
@@ -46,13 +55,19 @@ export function EditDocumentPage() {
           setIsCustomCategory(true);
           setCustomCategory(cat);
         }
-        if (data.storage_key && !data.storage_key.startsWith("virtual/")) {
+        
+        // Handle virtual documents (no actual file)
+        if (data.is_virtual) {
+          console.log("Virtual document detected - no file exists");
+          setExistingFileName(null);
+        } else if (data.storage_key && !data.storage_key.startsWith("virtual/")) {
           // Extract file name from storage key
           const parts = data.storage_key.split("/");
           setExistingFileName(parts[parts.length - 1]);
         }
       } catch (err) {
-        setError("api", err.message);
+        console.error("Error fetching document:", err);
+        setError("api", "Network error. Please check your connection.");
       } finally {
         setLoading(false);
       }
@@ -64,16 +79,12 @@ export function EditDocumentPage() {
     const newErrors = {};
     const finalCategory = isCustomCategory ? customCategory.trim() : category;
     if (!finalCategory) newErrors.category = "Category is required.";
-    else if (finalCategory.length > 50) newErrors.category = "Category must be 50 characters or less.";
+    else if (finalCategory.length > 25) newErrors.category = "Category must be 25 characters or less.";
 
     if (!title.trim()) newErrors.title = "Title is required.";
     else if (title.trim().length < 3) newErrors.title = "Title must be at least 3 characters.";
-    else if (title.trim().length > 150) newErrors.title = "Title must be 150 characters or less.";
+    else if (title.trim().length > 100) newErrors.title = "Title must be 100 characters or less.";
 
-    if (expiryDate) {
-      const d = new Date(expiryDate);
-      if (isNaN(d.getTime())) newErrors.expiryDate = "Invalid date.";
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -91,8 +102,6 @@ export function EditDocumentPage() {
       const finalCategory = isCustomCategory ? customCategory.trim() : category;
       formData.append("category", finalCategory);
       formData.append("title", title.trim());
-      // Sentinel: if cleared, send empty string; if never set, don't append
-      formData.append("expiry_date", expiryDate || "");
       if (uploadedFile) formData.append("file", uploadedFile);
 
       const res = await fetch(`http://localhost:8000/documents/${docUuid}`, {
@@ -210,23 +219,6 @@ export function EditDocumentPage() {
                 {errors.title && <p className="text-red-600 text-sm mt-1">{errors.title}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Expiry Date <span className="text-gray-400 font-normal">(optional)</span></label>
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={expiryDate}
-                    onChange={(e) => { setExpiryDate(e.target.value); clearError("expiryDate"); }}
-                    className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:border-navy-500 focus:outline-none"
-                  />
-                  {expiryDate && (
-                    <button type="button" onClick={() => setExpiryDate("")} className="px-4 py-2 text-sm text-red-600 hover:text-red-800 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
-                      Clear
-                    </button>
-                  )}
-                </div>
-                {errors.expiryDate && <p className="text-red-600 text-sm mt-1">{errors.expiryDate}</p>}
-              </div>
             </div>
           </section>
 

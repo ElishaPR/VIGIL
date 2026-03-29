@@ -4,17 +4,17 @@ from sqlalchemy.orm import Session
 from app.modules.user.crud.dashboard import get_user_reminders_dashboard
 
 
-def calculate_status(expiry_date):
+def calculate_status(reminder_at):
 
-    if not expiry_date:
-        return "no_expiry"
+    if not reminder_at:
+        return "active"
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(timezone.utc)
 
-    if expiry_date < today:
+    if reminder_at < today:
         return "expired"
 
-    if expiry_date <= today + timedelta(days=30):
+    if reminder_at <= today + timedelta(days=3):
         return "expiring"
 
     return "active"
@@ -37,21 +37,22 @@ def get_dashboard_reminders_service(db: Session, user_id: int):
     for reminder, document in rows:
 
         if document:
-            title = document.doc_title
+            title = reminder.reminder_title or document.doc_title
             category = document.doc_category.lower()
-            expiry = document.expiry_date
         else:
             title = reminder.reminder_title
             category = "general"
-            expiry = None
 
-        status = calculate_status(expiry)
+        status = calculate_status(reminder.reminder_at)
 
         reminders.append({
             "reminder_uuid": str(reminder.reminder_uuid),
             "title": title,
             "category": category,
-            "expiry_date": expiry.isoformat() if expiry else None,
+            "reminder_at": (
+                reminder.reminder_at.replace(tzinfo=timezone.utc).isoformat()
+                if reminder.reminder_at else None
+            ),
             "priority": format_priority(reminder.priority),
             "status": status,
             "push_notification": reminder.push_notification,

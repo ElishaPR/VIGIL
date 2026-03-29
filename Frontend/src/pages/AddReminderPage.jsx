@@ -237,7 +237,9 @@ export function AddReminderPage() {
       newErrors.title = "Title must be 100 characters or less.";
     }
 
-    // Expiry date validation
+
+
+    // Expiry Date validation
     if (!expiryDate) {
       newErrors.expiryDate = "Expiry date is required.";
     } else {
@@ -245,33 +247,30 @@ export function AddReminderPage() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (expiry < today) {
-        newErrors.expiryDate = "Expiry date must be in the future.";
+        newErrors.expiryDate = "Expiry date cannot be in the past.";
       }
     }
 
     // Custom reminder date validation
     if (scheduleType === "custom") {
-
       if (!reminderAt) {
         newErrors.reminderAt = "Reminder date is required.";
       } else {
+        const selectedDate = new Date(`${reminderAt}T00:00:00`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        const reminder = new Date(reminderAt + "T00:00:00");
-        const expiry = new Date(expiryDate + "T00:00:00");
-        const now = new Date();
-
-        now.setHours(0,0,0,0);
-
-        if (reminder < now) {
+        if (selectedDate < today) {
           newErrors.reminderAt = "Reminder date cannot be in the past.";
         }
-
-        if (reminder > expiry) {
-          newErrors.reminderAt = "Reminder must be before or on expiry date.";
+        
+        if (expiryDate) {
+          const expiry = new Date(`${expiryDate}T00:00:00`);
+          if (selectedDate > expiry) {
+            newErrors.reminderAt = "Reminder must be before or on expiry date.";
+          }
         }
-
       }
-
     }
 
 
@@ -289,6 +288,7 @@ export function AddReminderPage() {
     e.preventDefault();
 
     if (!validateForm()) {
+      updateError("api", "Please fill in all required fields correctly.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -308,21 +308,18 @@ export function AddReminderPage() {
       formData.append("category", finalCategory);
       formData.append("title", reminderTitle.trim());
 
-      formData.append("expiry_date", expiryDate);
-
-      formData.append("schedule_type", scheduleType);
       formData.append("repeat_type", repeatType);
       formData.append("priority", priority);
+      formData.append("expiry_date", expiryDate);
+      formData.append("schedule_type", scheduleType.toUpperCase());
 
-      formData.append("enable_push", pushNotification ? "true" : "false");
-
+      // Only send custom date if selected
       if (scheduleType === "custom" && reminderAt) {
-
-        // Send UTC time based on the selected local time
-        const reminderUtc = toUTCISOString(reminderAt, "09:00:00");
-
+        const reminderUtc = toUTCISOString(reminderAt);
         formData.append("reminder_at", reminderUtc);
       }
+      
+      formData.append("enable_push", pushNotification ? "true" : "false");
 
       if (notes.trim()) {
         formData.append("notes", notes.trim());
@@ -640,136 +637,110 @@ export function AddReminderPage() {
                   <p className="text-xs text-gray-500">{reminderTitle.length}/100</p>
                 </div>
               </div>
-
-              {/* Expiry Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Expiry Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={expiryDate}
-                  min={getMinDate()}
-                  onChange={(e) => {
-                    setExpiryDate(e.target.value);
-                    const expiry = new Date(e.target.value + "T00:00:00");
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    if (e.target.value && expiry >= today) {
-                      clearError("expiryDate");
-                    } else if (e.target.value) {
-                      updateError("expiryDate", "Expiry date must be in the future.");
-                    }
-                    // Reset reminder date if it's after new expiry
-                    if (reminderAt && new Date(reminderAt) >= new Date(e.target.value)) {
-                      setReminderAt("");
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!expiryDate) {
-                      updateError("expiryDate", "Expiry date is required.");
-                    } else {
-                      const expiry = new Date(expiryDate + "T00:00:00");
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      if (expiry < today) {
-                        updateError("expiryDate", "Expiry date must be in the future.");
+1:            </div>
+            {/* End Reminder Title */}
+            
+            {/* Expiry Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Expiry Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={expiryDate}
+                min={getMinDate()}
+                onChange={(e) => {
+                  setExpiryDate(e.target.value);
+                  if (!e.target.value) {
+                    clearError("expiryDate");
+                    return;
+                  }
+                  const expiry = new Date(e.target.value + "T00:00:00");
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  if (expiry < today) {
+                    updateError("expiryDate", "Expiry date cannot be in the past.");
+                  } else {
+                    clearError("expiryDate");
+                    // Validate custom reminder vs expiry
+                    if (scheduleType === "custom" && reminderAt) {
+                      const reminder = new Date(reminderAt + "T00:00:00");
+                      if (reminder > expiry) {
+                        updateError("reminderAt", "Reminder must be before or on expiry date.");
                       } else {
-                        clearError("expiryDate");
+                        clearError("reminderAt");
                       }
                     }
-                  }}
-                  className={`w-full px-4 py-3 rounded-xl border ${
-                    errors.expiryDate ? "border-red-300" : "border-gray-300"
-                  } focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20 outline-none transition-all text-gray-900`}
-                />
-                {errors.expiryDate && (
-                  <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
-                    </svg>
-                    {errors.expiryDate}
-                  </p>
-                )}
-              </div>
+                  }
+                }}
+                className={`w-full px-4 py-3 rounded-xl border ${
+                  errors.expiryDate ? "border-red-300" : "border-gray-300"
+                } focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20 outline-none transition-all text-gray-900 bg-white`}
+              />
+              {errors.expiryDate && (
+                <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
+                  </svg>
+                  {errors.expiryDate}
+                </p>
+              )}
             </div>
+            
           </section>
 
-          {/* Schedule Type Section */}
           <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Schedule Type
+              Reminder Schedule
             </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              {/* Default Option */}
+            
+            <div className="flex bg-gray-100 p-1 rounded-xl w-full mb-6">
               <button
                 type="button"
-                onClick={() => {
-                  setScheduleType("default");
-                  setReminderAt("");
-                  setRepeatType("none");
-                  clearError("reminderAt");
-                }}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  scheduleType === "default"
-                    ? "border-navy-500 bg-navy-50"
-                    : "border-gray-200 hover:border-gray-300"
+                onClick={() => setScheduleType("default")}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  scheduleType === "default" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    scheduleType === "default" ? "border-navy-500" : "border-gray-300"
-                  }`}>
-                    {scheduleType === "default" && (
-                      <div className="w-3 h-3 rounded-full bg-navy-500"></div>
-                    )}
-                  </div>
-                  <span className={`font-semibold ${scheduleType === "default" ? "text-navy-700" : "text-gray-700"}`}>
-                    Default
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 ml-8">
-                  EEmail notification is sent 1 day before expiry. If expiry is set to today, the reminder will be sent today.
-                </p>
+                Default Schedule
               </button>
-
-              {/* Custom Option */}
               <button
                 type="button"
                 onClick={() => setScheduleType("custom")}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  scheduleType === "custom"
-                    ? "border-navy-500 bg-navy-50"
-                    : "border-gray-200 hover:border-gray-300"
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  scheduleType === "custom" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    scheduleType === "custom" ? "border-navy-500" : "border-gray-300"
-                  }`}>
-                    {scheduleType === "custom" && (
-                      <div className="w-3 h-3 rounded-full bg-navy-500"></div>
-                    )}
-                  </div>
-                  <span className={`font-semibold ${scheduleType === "custom" ? "text-navy-700" : "text-gray-700"}`}>
-                    Custom
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 ml-8">
-                  Set your own reminder date
-                </p>
+                Custom Schedule
               </button>
             </div>
 
-            {/* Custom Reminder Date */}
+            {scheduleType === "default" && (
+              <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-xl">
+                <div className="flex gap-3">
+                  <svg className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900">Default Schedule Active</h4>
+                    <p className="text-sm text-blue-700 mt-1 leading-relaxed">
+                      Reminders will be sent <span className="font-semibold">1 day prior</span> to the expiry date at 9:00 AM.
+                    </p>
+                    <p className="text-xs text-blue-600/80 mt-2 italic">
+                      Note: If expiry is today, you'll be notified shortly.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {scheduleType === "custom" && (
               <div className="mt-4 p-4 bg-gray-50 rounded-xl">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Reminder Date <span className="text-red-500">*</span>
+                  Custom Reminder Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -783,32 +754,14 @@ export function AddReminderPage() {
                       return;
                     }
                     const reminder = new Date(e.target.value + "T00:00:00");
-                    const expiry = new Date(expiryDate + "T00:00:00");
                     const now = new Date();
                     now.setHours(0, 0, 0, 0);
                     if (reminder < now) {
                       updateError("reminderAt", "Reminder date cannot be in the past.");
-                    } else if (reminder > expiry) {
+                    } else if (expiryDate && reminder > new Date(expiryDate + "T00:00:00")) {
                       updateError("reminderAt", "Reminder must be before or on expiry date.");
                     } else {
                       clearError("reminderAt");
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!reminderAt) {
-                      updateError("reminderAt", "Reminder date is required.");
-                    } else {
-                      const reminder = new Date(reminderAt + "T00:00:00");
-                      const expiry = new Date(expiryDate + "T00:00:00");
-                      const now = new Date();
-                      now.setHours(0, 0, 0, 0);
-                      if (reminder < now) {
-                        updateError("reminderAt", "Reminder date cannot be in the past.");
-                      } else if (reminder >= expiry) {
-                        updateError("reminderAt", "Reminder must be before expiry date.");
-                      } else {
-                        clearError("reminderAt");
-                      }
                     }
                   }}
                   className={`w-full px-4 py-3 rounded-xl border ${
@@ -820,7 +773,7 @@ export function AddReminderPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
                     </svg>
-                    {errors.reminderAt}
+                      {errors.reminderAt}
                   </p>
                 )}
               </div>
@@ -828,7 +781,6 @@ export function AddReminderPage() {
           </section>
 
           {/* Repeat Type Section */}
-          {scheduleType === "custom" && (
             <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -854,7 +806,6 @@ export function AddReminderPage() {
                 ))}
               </div>
             </section>
-          )}
 
           {/* Priority & Notifications Section */}
           <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
@@ -1027,8 +978,8 @@ export function AddReminderPage() {
                     </svg>
                   </div>
                   <p className="text-gray-600 font-medium mb-1">Upload your document</p>
-                  <p className="text-sm text-gray-500 mb-6">
-                    Choose from device or capture with camera
+                  <p className="text-sm text-gray-500 mb-6 font-medium">
+                    Allowed: Images, PDF, Word, Excel (Max 10MB)
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">

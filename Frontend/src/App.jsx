@@ -14,6 +14,7 @@ import { EditDocumentPage } from "./pages/EditDocumentPage.jsx";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage.jsx";
 import { UserProfilePage } from "./pages/UserProfilePage.jsx";
 import { AdminPage } from "./pages/AdminPage.jsx";
+import { FeedbackPage } from "./pages/FeedbackPage.jsx";
 import { NotFoundPage } from "./pages/NotFoundPage.jsx";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
@@ -133,6 +134,10 @@ function App() {
         <Route
           path="/admin/notifications"
           element={<ProtectedRoute element={<AdminPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
+        />
+        <Route
+          path="/feedback"
+          element={<ProtectedRoute element={<FeedbackPage />} isAuthenticated={isAuthenticated} isLoading={isLoading} />}
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

@@ -1,8 +1,10 @@
 from supabase import create_client
 from app.core.config import settings
 import logging
+import uuid
 
 # Set up logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 supabase = create_client(
@@ -115,3 +117,49 @@ def download_file(storage_key: str) -> bytes:
     except Exception as e:
         logger.error(f"Download failed for {storage_key}: {type(e).__name__}: {str(e)}")
         raise
+
+
+def test_supabase_connection():
+    """
+    Test function to verify Supabase connectivity and permissions
+    """
+    try:
+        logger.info("Testing Supabase connection...")
+        
+        # Test bucket access
+        buckets = supabase.storage.list_buckets()
+        bucket_names = [bucket.name for bucket in buckets]
+        logger.info(f"Available buckets: {bucket_names}")
+        
+        if settings.DOCUMENT_BUCKET not in bucket_names:
+            logger.error(f"Target bucket '{settings.DOCUMENT_BUCKET}' not found!")
+            return False
+        
+        # Test upload
+        test_key = f"test/connection-test-{uuid.uuid4()}.txt"
+        test_data = b"Connection test"
+        upload_result = upload_file(test_key, test_data, "text/plain")
+        logger.info(f"Test upload successful: {upload_result}")
+        
+        # Test download
+        downloaded_data = download_file(test_key)
+        if downloaded_data == test_data:
+            logger.info("Test download successful - data matches")
+        else:
+            logger.error("Test download failed - data mismatch")
+            return False
+        
+        # Test signed URL
+        signed_url = get_signed_url(test_key)
+        logger.info(f"Test signed URL generated: {signed_url[:100]}...")
+        
+        # Cleanup
+        delete_file(test_key)
+        logger.info("Test file deleted")
+        
+        logger.info("All Supabase tests passed!")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Supabase connection test failed: {type(e).__name__}: {str(e)}")
+        return False

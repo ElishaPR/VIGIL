@@ -49,4 +49,7 @@ def get_current_user(
     if not user:
         raise HTTPException(401, "User not found")
 
+    if not user.email_verified:
+        raise HTTPException(403, "Email not verified")
+
     return user

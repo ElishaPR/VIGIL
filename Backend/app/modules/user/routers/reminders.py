@@ -1,5 +1,6 @@
 from __future__ import annotations
 import uuid
+from typing import Optional
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
@@ -79,7 +80,9 @@ def get_reminder(
         "push_notification": reminder.push_notification,
         "email_notification": reminder.email_notification,
         "notes": reminder.notes,
-        "status": reminder.reminder_status
+        "status": reminder.reminder_status,
+        "document_url": f"http://localhost:8000/documents/{doc.doc_uuid}" if doc and doc.doc_size > 0 else None,
+        "document_name": doc.doc_title if doc and doc.doc_size > 0 else None
     }
 
 
@@ -87,7 +90,7 @@ def get_reminder(
 @router.post("/create")
 async def create_reminder_api(
     # OPTIONAL DOCUMENT
-    document: UploadFile | None = File(None),
+    document: Optional[UploadFile] = File(None),
     form_data: AddReminderRequest = Depends(AddReminderRequest.as_form),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -123,6 +126,7 @@ async def create_reminder_api(
                 category=form_data.category or "general",
                 title=form_data.title,
                 expiry_date=expiry_date_parsed,
+                notes=form_data.notes,
                 file=document
             )
             doc_id = doc.doc_id
@@ -176,20 +180,23 @@ async def create_reminder_api(
 
 # ---------------- UPDATE ----------------
 @router.put("/{reminder_uuid}")
-def update_reminder(
+async def update_reminder(
 
     reminder_uuid: str,
 
-    reminder_title: str | None = Form(None),
-    category: str | None = Form(None),
-    expiry_date: str | None = Form(None),
-    schedule_type: str | None = Form(None),
-    reminder_at: str | None = Form(None),
-    repeat_type: str | None = Form(None),
-    priority: str | None = Form(None),
-    enable_push: bool = Form(...),
+    reminder_title: Optional[str] = Form(None),
+    category: Optional[str] = Form(None),
+    expiry_date: Optional[str] = Form(None),
+    schedule_type: Optional[str] = Form(None),
+    reminder_at: Optional[str] = Form(None),
+    repeat_type: Optional[str] = Form(None),
+    priority: Optional[str] = Form(None),
+    notes: Optional[str] = Form(None),
+    timezone: str = Form("UTC"),
+    enable_push: bool = Form(False),
     email_notification: bool = Form(True),
-    notes: str | None = Form(None),
+    document: Optional[UploadFile] = File(None),
+    remove_document: bool = Form(False),
 
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -218,7 +225,28 @@ def update_reminder(
             raise HTTPException(400, "Invalid expiry_date format. Use YYYY-MM-DD.")
 
     try:
-        reminder = update_reminder_service(
+        # Document handling in update
+        doc_id = None
+        current_reminder = get_reminder_by_uuid_service(db, reminder_uuid, current_user.user_id)
+        
+        if remove_document:
+            # Note: The service will handle setting doc_id to null if it exists
+            pass 
+        elif document and document.filename:
+            # Create new doc
+            new_doc = await create_document_service(
+                db=db,
+                user_id=current_user.user_id,
+                user_uuid=str(current_user.user_uuid),
+                category=category or "general",
+                title=reminder_title or current_reminder.reminder_title,
+                expiry_date=expiry_date_parsed or (db.query(Document).filter(Document.doc_id == current_reminder.doc_id).first().expiry_date if current_reminder.doc_id else None),
+                notes=notes,
+                file=document
+            )
+            doc_id = new_doc.doc_id
+
+        reminder = await update_reminder_service(
             db,
             reminder_uuid,
             current_user.user_id,
@@ -232,7 +260,10 @@ def update_reminder(
             reminder_title=reminder_title,
             category=category,
             expiry_date=expiry_date_parsed,
-            expiry_date_provided=expiry_date_provided
+            expiry_date_provided=expiry_date_provided,
+            user_timezone=pytz.timezone(timezone.strip()) if timezone and timezone.strip() in pytz.all_timezones else pytz.UTC,
+            new_doc_id=doc_id,
+            remove_document=remove_document
         )
     except HTTPException:
         raise

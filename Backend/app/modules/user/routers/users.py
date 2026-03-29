@@ -164,12 +164,26 @@ def login(
                 detail="Failed to send verification email."
             )
 
-        response.delete_cookie("access_token")
-
-        raise HTTPException(
+        from fastapi.responses import JSONResponse
+        err_resp = JSONResponse(
             status_code=403,
-            detail="Please verify your email."
+            content={"detail": "Please verify your email."}
         )
+        access_token = create_access_token({
+            "user_id": user.user_id,
+            "user_uuid": str(user.user_uuid),
+            "email": user.email_address,
+            "type": "access"
+        })
+        err_resp.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=ACCESS_TOKEN_EXPIRE_SECONDS
+        )
+        return err_resp
 
     # Single token creation for verified users (B8 fix)
     access_token = create_access_token({

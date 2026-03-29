@@ -12,6 +12,7 @@ from app.core.dependencies.auth_cookie import get_current_user
 from app.modules.user.models.users import User
 from app.modules.user.models.reminders import Reminder
 from app.modules.admin.models.notification_logs import NotificationLog
+from app.core.config import settings
 
 router = APIRouter(prefix="/reports", tags=["Admin Reports"])
 
@@ -22,6 +23,9 @@ def generate_admin_report(
 ):
     # Admin check - reuse simple auth check
     # In a real app we'd check current_user.is_admin
+    if current_user.email_address.lower() != settings.ADMIN_EMAIL.lower():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Admin access required")
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     styles = getSampleStyleSheet()

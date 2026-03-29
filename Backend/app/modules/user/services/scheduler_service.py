@@ -115,8 +115,8 @@ def check_and_send_notifications(db: Session):
                 for fcm_token in fcm_tokens:
                     try:
                         data = {
-                            "reminder_id": reminder.reminder_id,
-                            "doc_id": reminder.doc_id,
+                            "reminder_id": str(reminder.reminder_id),
+                            "doc_id": str(reminder.doc_id) if reminder.doc_id else "",
                             "type": "reminder"
                         }
 

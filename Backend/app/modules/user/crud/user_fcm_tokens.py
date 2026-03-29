@@ -64,7 +64,8 @@ def get_active_tokens(
 def update_push_status(
     db: Session,
     token: str,
-    status: str
+    status: str,
+    commit: bool = False
 ):
 
     token_obj = db.query(User_FCM_Token).filter(
@@ -80,4 +81,5 @@ def update_push_status(
     if status == "FAILED":
         token_obj.is_active = False
 
-    db.commit()
+    if commit:
+        db.commit()

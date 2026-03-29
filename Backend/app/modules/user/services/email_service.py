@@ -17,7 +17,7 @@ def send_email(
         sib_api_v3_sdk.ApiClient(configuration)
     )
 
-    link = f"https://vigil-placeholder.app/reminder/{reminder_uuid}"
+    link = f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/reminder/{reminder_uuid}"
 
     html_content = f"""
     <div style="font-family: Arial; padding:20px">

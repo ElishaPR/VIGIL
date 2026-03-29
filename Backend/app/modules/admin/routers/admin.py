@@ -7,6 +7,7 @@ from app.core.dependencies.auth_cookie import get_current_user
 from app.modules.user.models.users import User
 from app.modules.admin.models.notification_logs import NotificationLog
 from app.modules.user.models.reminders import Reminder
+from app.core.config import settings
 
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -26,6 +27,8 @@ def get_notification_logs(
     Accessible to any authenticated user.
     Filter by status (SUCCESS/FAILED) and/or channel (EMAIL/PUSH).
     """
+    if current_user.email_address.lower() != settings.ADMIN_EMAIL.lower():
+        raise HTTPException(status_code=403, detail="Admin access required")
 
     query = (
         db.query(

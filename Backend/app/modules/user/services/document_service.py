@@ -3,8 +3,8 @@ import uuid
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
-from app.modules.user.services.supabase_service import upload_file, delete_file, replace_file, get_signed_url
-from app.core.services.encryption_service import encrypt_file
+from app.modules.user.services.supabase_service import upload_file, delete_file, replace_file, get_signed_url, download_file
+from app.core.services.encryption_service import encrypt_file, decrypt_file
 from app.modules.user.crud.documents import (
     create_document as crud_create_document,
     get_document_by_uuid,
@@ -94,10 +94,11 @@ def list_documents_service(db, user_id):
             "doc_category": d.doc_category,
             "doc_size": d.doc_size,
             "mime_type": d.mime_type,
-            "expiry_date": d.expiry_date.isoformat() if d.expiry_date else None,
             "created_at": d.created_at.isoformat(),
+            "is_virtual": d.storage_key.startswith("virtual/")
         }
         for d in docs
+        if not d.storage_key.startswith("virtual/")  # Exclude virtual documents from list
     ]
 
 
@@ -107,16 +108,44 @@ def get_document_file_service(db, doc_uuid, user_id):
     if not document:
         raise HTTPException(404, "Document not found")
 
+    # Check if this is a virtual document (doesn't exist in Supabase storage)
+    if document.storage_key.startswith("virtual/"):
+        # Virtual documents don't have actual files, return null URL
+        return {
+            "doc_uuid": str(document.doc_uuid),
+            "doc_title": document.doc_title,
+            "doc_category": document.doc_category,
+            "mime_type": document.mime_type,
+            "url": None,
+            "is_virtual": True
+        }
+
     url = get_signed_url(document.storage_key)
 
     return {
         "doc_uuid": str(document.doc_uuid),
         "doc_title": document.doc_title,
         "doc_category": document.doc_category,
-        "expiry_date": document.expiry_date.isoformat() if document.expiry_date else None,
         "mime_type": document.mime_type,
-        "url": url
+        "url": url,
+        "is_virtual": False
     }
+
+
+def get_decrypted_document_service(db, doc_uuid, user_id):
+    document = get_document_by_uuid(db, doc_uuid, user_id)
+    if not document:
+        raise HTTPException(404, "Document not found")
+
+    # Check if this is a virtual document (doesn't exist in Supabase storage)
+    if document.storage_key.startswith("virtual/"):
+        # Virtual documents don't have actual files, return empty content
+        return b"", document.mime_type
+
+    encrypted_bytes = download_file(document.storage_key)
+    decrypted_bytes = decrypt_file(encrypted_bytes)
+
+    return decrypted_bytes, document.mime_type
 
 
 def delete_document_service(db, doc_uuid, user_id):
@@ -125,7 +154,10 @@ def delete_document_service(db, doc_uuid, user_id):
     if not document:
         raise HTTPException(404, "Document not found")
 
-    delete_file(document.storage_key)
+    # Only delete from Supabase if it's not a virtual document
+    if not document.storage_key.startswith("virtual/"):
+        delete_file(document.storage_key)
+    
     delete_document(db, document)
 
 
@@ -162,18 +194,6 @@ async def update_document_service(
     if notes is not None:
         document.notes = notes.strip() if notes else None
 
-    # Only update expiry_date when explicitly sent:
-    # None  → field was not sent at all → don't touch
-    # ""    → field sent as empty string → clear expiry_date
-    # "..." → valid date string → parse and update
-    if expiry_date is not None:
-        if expiry_date == "":
-            document.expiry_date = None
-        else:
-            from datetime import datetime
-            try:
-                document.expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
-            except ValueError:
-                raise HTTPException(400, "Invalid expiry_date format. Use YYYY-MM-DD.")
+
 
     return update_document(db, document)

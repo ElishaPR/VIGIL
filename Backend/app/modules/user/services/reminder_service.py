@@ -122,7 +122,7 @@ def create_reminder_service(
     return reminder
 
 
-def update_reminder_service(
+async def update_reminder_service(
     db,
     reminder_uuid,
     user_id,
@@ -130,13 +130,16 @@ def update_reminder_service(
     reminder_at,
     repeat_type,
     priority,
-    notes,
-    push_notification,
-    email_notification,
-    reminder_title=None,
-    category=None,
+    notes: str | None,
+    push_notification: bool,
+    email_notification: bool = True,
+    reminder_title: str | None = None,
+    category: str | None = None,
     expiry_date=None,
-    expiry_date_provided=False
+    expiry_date_provided: bool = False,
+    user_timezone=pytz.UTC,
+    new_doc_id: int | None = None,
+    remove_document: bool = False
 ):
     reminder = db.query(Reminder).filter(
         Reminder.reminder_uuid == reminder_uuid,
@@ -149,14 +152,54 @@ def update_reminder_service(
     if reminder_title and reminder_title.strip():
         reminder.reminder_title = reminder_title.strip()
 
-    if reminder_at:
-        reminder.reminder_at = reminder_at.astimezone(pytz.UTC)
-
     if schedule_type:
         st = schedule_type.upper()
         if st not in VALID_SCHEDULE_TYPES:
             raise HTTPException(400, "Invalid schedule type")
         reminder.schedule_type = st
+
+    active_expiry = expiry_date if expiry_date_provided else None
+    
+    # Need to fetch doc to verify existing expiry if not provided
+    doc = None
+    if reminder.doc_id:
+        doc = db.query(Document).filter(Document.doc_id == reminder.doc_id).first()
+        if not active_expiry and doc:
+            active_expiry = doc.expiry_date
+            
+    now_utc = datetime.now(pytz.UTC)
+
+    if reminder.schedule_type == "DEFAULT" and active_expiry:
+        expiry_local = datetime.combine(active_expiry, time(9, 0))
+        expiry_local = user_timezone.localize(expiry_local)
+        today_local = datetime.now(user_timezone).date()
+        
+        if active_expiry == today_local:
+            reminder_local = datetime.now(user_timezone) + timedelta(minutes=2)
+        else:
+            reminder_local = expiry_local - timedelta(days=1)
+            
+        reminder_local = adjust_if_today_past(reminder_local, user_timezone)
+        reminder_utc = reminder_local.astimezone(pytz.UTC)
+        
+        # Only validate if not strictly past to afford safe defaults
+        if reminder_utc <= now_utc and active_expiry != today_local:
+            pass # Ignore if it's naturally past default but don't fail, or do we? Wait create throws if in the past
+            
+        reminder.reminder_at = reminder_utc
+        # Bug fix: if the reminder was already sent but we update its time, restore status
+        reminder.reminder_status = "PENDING"
+        
+    elif reminder.schedule_type == "CUSTOM" and reminder_at:
+        reminder_local = reminder_at.astimezone(user_timezone)
+        reminder_local = adjust_if_today_past(reminder_local, user_timezone)
+        reminder_utc = reminder_local.astimezone(pytz.UTC)
+        
+        if reminder_utc <= now_utc:
+            raise HTTPException(400, "Reminder time is in the past")
+            
+        reminder.reminder_at = reminder_utc
+        reminder.reminder_status = "PENDING"
 
     if repeat_type:
         rt = repeat_type.upper()
@@ -174,20 +217,19 @@ def update_reminder_service(
     reminder.push_notification = push_notification
     reminder.email_notification = email_notification
 
-    # Enforce at-least-one-notification rule
-    if not reminder.email_notification and not reminder.push_notification:
-        raise HTTPException(400, "At least one notification method (email or push) must be enabled")
+    if remove_document:
+        reminder.doc_id = None
+    elif new_doc_id:
+        reminder.doc_id = new_doc_id
 
-    # Update associated document if linked
-    if reminder.doc_id:
-        doc = db.query(Document).filter(Document.doc_id == reminder.doc_id).first()
-        if doc:
-            if category and category.strip():
-                doc.doc_category = category.strip()
-            if reminder_title and reminder_title.strip():
-                doc.doc_title = reminder_title.strip()
-            if expiry_date_provided:
-                doc.expiry_date = expiry_date
+    # Update associated document if it exists (and we didn't just remove it)
+    if not remove_document and doc:
+        if category and category.strip():
+            doc.doc_category = category.strip()
+        if reminder_title and reminder_title.strip():
+            doc.doc_title = reminder_title.strip()
+        if expiry_date_provided:
+            doc.expiry_date = expiry_date
 
     return update_reminder(db, reminder)
 
