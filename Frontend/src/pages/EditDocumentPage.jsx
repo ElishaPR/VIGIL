@@ -33,20 +33,16 @@ export function EditDocumentPage() {
     const fetchDoc = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`http://localhost:8000/documents/${docUuid}`, { credentials: "include" });
+        // Use /preview which returns full info: doc_title, doc_category, file_extension, is_virtual
+        const res = await fetch(`http://localhost:8000/documents/${docUuid}/preview`, { credentials: "include" });
         if (!res.ok) {
-          if (res.status === 401) {
-            setError("api", "Authentication required. Please login again.");
-          } else if (res.status === 404) {
-            setError("api", "Document not found.");
-          } else {
-            setError("api", `Failed to load document: ${res.status}`);
-          }
+          if (res.status === 401) setError("api", "Authentication required. Please login again.");
+          else if (res.status === 404) setError("api", "Document not found.");
+          else setError("api", `Failed to load document: ${res.status}`);
           return;
         }
         const data = await res.json();
-        console.log("Document data:", data); // Debug log
-        
+
         setTitle(data.doc_title || "");
         const cat = (data.doc_category || "").toLowerCase();
         if (CATEGORY_OPTIONS.find((c) => c.id === cat)) {
@@ -55,18 +51,14 @@ export function EditDocumentPage() {
           setIsCustomCategory(true);
           setCustomCategory(cat);
         }
-        
-        // Handle virtual documents (no actual file)
-        if (data.is_virtual) {
-          console.log("Virtual document detected - no file exists");
+
+        // Show existing file label if real file exists
+        if (!data.is_virtual && data.file_extension) {
+          setExistingFileName(`${data.doc_title}.${data.file_extension}`);
+        } else {
           setExistingFileName(null);
-        } else if (data.storage_key && !data.storage_key.startsWith("virtual/")) {
-          // Extract file name from storage key
-          const parts = data.storage_key.split("/");
-          setExistingFileName(parts[parts.length - 1]);
         }
       } catch (err) {
-        console.error("Error fetching document:", err);
         setError("api", "Network error. Please check your connection.");
       } finally {
         setLoading(false);

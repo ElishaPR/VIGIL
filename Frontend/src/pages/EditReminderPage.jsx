@@ -103,8 +103,6 @@ export default function EditReminderPage() {
 
         if (response.ok) {
           const data = await response.json();
-          console.log("Full reminder response:", data);
-          // B2 fix: use correct field names from backend
           setReminderTitle(data.reminder_title || "");
           setDocCategory(data.category || "");
           setPriority(data.priority || "medium");
@@ -124,7 +122,12 @@ export default function EditReminderPage() {
             setScheduleType(data.schedule_type.toLowerCase() === "custom" ? "custom" : "default");
           }
 
-          if (data.reminder_at) {
+          if (data.reminder_at && data.schedule_type?.toLowerCase() === "custom") {
+            // For custom schedule, preserve date + time in datetime-local format
+            const d = new Date(data.reminder_at);
+            const pad = (n) => String(n).padStart(2, "0");
+            setReminderAt(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+          } else if (data.reminder_at) {
             setReminderAt(toLocalDateInput(data.reminder_at));
           }
 
@@ -155,8 +158,7 @@ export default function EditReminderPage() {
         } else {
           updateError("api", "Failed to load reminder");
         }
-      } catch (err) {
-        console.error("Error fetching reminder:", err);
+      } catch {
         updateError("api", "Server not connected");
       } finally {
         setLoading(false);
@@ -368,14 +370,11 @@ export default function EditReminderPage() {
     }
 
     setErrors(newErrors);
-    console.log("DEBUG - Validation errors:", newErrors);
-    console.log("DEBUG - Form valid:", Object.keys(newErrors).length === 0);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("DEBUG: handleSubmit called");
 
     if (!validateForm()) {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -428,8 +427,13 @@ export default function EditReminderPage() {
         }
       }
 
+      // email notifications always enabled
+      formData.append("email_notification", "true");
+
       if (scheduleType === "custom" && reminderAt) {
-        formData.append("reminder_at", toUTCISOString(reminderAt));
+        // reminderAt is in datetime-local format "YYYY-MM-DDTHH:MM"
+        const local = new Date(reminderAt);
+        formData.append("reminder_at", local.toISOString().replace("Z", "+00:00"));
       }
       // notes always sent regardless of schedule type
       formData.append("notes", notes.trim());

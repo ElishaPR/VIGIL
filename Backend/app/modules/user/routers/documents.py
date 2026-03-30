@@ -51,7 +51,10 @@ async def upload_document(
             notes=notes,
             file=file
         )
+        db.commit()
+        db.refresh(document)
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
         db.rollback()

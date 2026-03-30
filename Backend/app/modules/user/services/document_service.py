@@ -181,7 +181,17 @@ async def update_document_service(
         validate_file(file)
         contents = await file.read()
         encrypted = encrypt_file(contents)
-        replace_file(document.storage_key, encrypted, file.content_type)
+
+        if document.storage_key.startswith("virtual/"):
+            # Virtual doc has no real file yet — generate a proper key and upload fresh
+            extension = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin"
+            new_storage_key = generate_storage_key(user_uuid, str(document.doc_uuid), extension)
+            upload_file(new_storage_key, encrypted, file.content_type)
+            document.storage_key = new_storage_key
+        else:
+            # Real doc — replace existing file in-place
+            replace_file(document.storage_key, encrypted, file.content_type)
+
         document.doc_size = len(contents)
         document.mime_type = file.content_type
 

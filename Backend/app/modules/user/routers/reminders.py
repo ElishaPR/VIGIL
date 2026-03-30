@@ -266,7 +266,7 @@ async def update_reminder(
                 if len(contents) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
                     raise HTTPException(400, "File too large")
                 encrypted = encrypt_file(contents)
-                storage_key = f"{current_user.user_uuid}/{_uuid.uuid4()}.{document.filename.rsplit('.', 1)[-1]}"
+                storage_key = f"documents/{current_user.user_uuid}/{_uuid.uuid4()}.{document.filename.rsplit('.', 1)[-1]}"
                 upload_file(storage_key, encrypted, document.content_type)
 
                 existing_doc.storage_key = storage_key
