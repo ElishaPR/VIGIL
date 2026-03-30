@@ -17,11 +17,10 @@ def send_email(
         sib_api_v3_sdk.ApiClient(configuration)
     )
 
-    link = f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/reminder/{reminder_uuid}"
+    link = f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/editreminder/{reminder_uuid}"
 
     html_content = f"""
     <div style="font-family: Arial; padding:20px">
-        <img src="https://vigil-placeholder.app/logo.png" width="120"/>
 
         <h2>Document Reminder</h2>
 

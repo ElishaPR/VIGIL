@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { generateAdminReport, downloadPDF } from "../utils/pdfGenerator.js";
 
 const STATUS_OPTIONS = ["all", "SUCCESS", "FAILED"];
 const CHANNEL_OPTIONS = ["all", "EMAIL", "PUSH"];
@@ -8,12 +9,14 @@ export function AdminPage() {
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
+  const [totalFailed, setTotalFailed] = useState(0);
   const [pages, setPages] = useState(1);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   const fetchLogs = async (p = 1) => {
     setLoading(true);
@@ -29,12 +32,38 @@ export function AdminPage() {
       const data = await res.json();
       setLogs(data.logs || []);
       setTotal(data.total || 0);
+      setTotalFailed(data.total_failed || 0);
       setPages(data.pages || 1);
       setPage(p);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGeneratePDF = async () => {
+    setGeneratingPDF(true);
+    try {
+      // Fetch all logs for PDF (without pagination)
+      const params = new URLSearchParams({ page_size: 10000 });
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (channelFilter !== "all") params.set("channel", channelFilter);
+      const res = await fetch(`http://localhost:8000/admin/notifications?${params.toString()}`, {
+        credentials: "include",
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const pdfDoc = generateAdminReport(data.logs || []);
+        downloadPDF(pdfDoc, `notification-logs-${new Date().toISOString().split('T')[0]}.pdf`);
+      } else {
+        setError("Failed to fetch data for PDF generation");
+      }
+    } catch (err) {
+      setError("Error generating PDF: " + err.message);
+    } finally {
+      setGeneratingPDF(false);
     }
   };
 
@@ -50,7 +79,7 @@ export function AdminPage() {
     });
   };
 
-  const failedCount = logs.filter((l) => l.status === "FAILED").length;
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,8 +107,8 @@ export function AdminPage() {
             <p className="text-3xl font-bold text-gray-900">{total}</p>
           </div>
           <div className="bg-red-50 rounded-2xl border border-red-200 p-5">
-            <p className="text-sm text-red-600 mb-1">Failed (this page)</p>
-            <p className="text-3xl font-bold text-red-700">{failedCount}</p>
+            <p className="text-sm text-red-600 mb-1">Total Failed</p>
+            <p className="text-3xl font-bold text-red-700">{totalFailed}</p>
           </div>
           <div className="bg-green-50 rounded-2xl border border-green-200 p-5">
             <p className="text-sm text-green-600 mb-1">Success (this page)</p>
@@ -118,6 +147,8 @@ export function AdminPage() {
                 ))}
               </div>
             </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => fetchLogs(page)}
               disabled={loading}
@@ -127,6 +158,16 @@ export function AdminPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Refresh
+            </button>
+            <button
+              onClick={handleGeneratePDF}
+              disabled={generatingPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-navy-600 text-white rounded-xl text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
+            >
+              <svg className={`w-4 h-4 ${generatingPDF ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {generatingPDF ? "Generating..." : "Generate PDF Report"}
             </button>
           </div>
 
@@ -138,7 +179,7 @@ export function AdminPage() {
               Open Feedback Inbox
             </button>
             <p className="text-[10px] text-gray-400">
-              Feedback messages are received at elishapr36@zohomail.in
+              Check admin inbox for feedback messages
             </p>
           </div>
         </div>
@@ -178,8 +219,8 @@ export function AdminPage() {
                     <td colSpan={6} className="px-4 py-12 text-center text-gray-500">No logs found for the selected filters.</td>
                   </tr>
                 )}
-                {!loading && logs.map((log) => (
-                  <tr key={log.log_id} className="hover:bg-gray-50 transition-colors">
+                {!loading && logs.map((log, index) => (
+                  <tr key={index} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${log.status === "SUCCESS" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${log.status === "SUCCESS" ? "bg-green-500" : "bg-red-500"}`}></span>

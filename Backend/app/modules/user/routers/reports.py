@@ -57,6 +57,7 @@ def generate_user_report(
     # Documents Table
     elements.append(Paragraph("<b>Documents</b>", styles['Heading2']))
     documents = db.query(Document).filter(Document.user_id == current_user.user_id).all()
+    documents = [d for d in documents if not d.storage_key.startswith("virtual/")]
     document_data = [["Title", "Category", "Size (KB)"]]
     for d in documents:
         document_data.append([

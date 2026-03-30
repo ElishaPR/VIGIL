@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useUser } from "../contexts/UserContext.jsx";
+import { PrimaryButton } from "../components/Auth/PrimaryButton";
+import DocumentPreview from "../components/DocumentPreview";
+import { generateUserReport, downloadPDF } from "../utils/pdfGenerator.js";
 
 const CATEGORY_FILTERS = [
   { id: "all", label: "All Categories", icon: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" },
@@ -8,6 +12,7 @@ const CATEGORY_FILTERS = [
   { id: "vehicle", label: "Vehicle", icon: "M8 17h8M8 17v4h8v-4M8 17H6a2 2 0 01-2-2V9a2 2 0 012-2h1l1.5-3h7L17 7h1a2 2 0 012 2v6a2 2 0 01-2 2h-2M7 13h.01M17 13h.01" },
   { id: "bills", label: "Bills & Subscriptions", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
   { id: "housing", label: "Housing & Property", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+  // ... rest of the code remains the same ...
   { id: "insurance", label: "Insurance", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
 ];
 
@@ -23,11 +28,10 @@ const priorityConfig = {
   low: { label: "Low", color: "text-green-500", bgColor: "bg-green-100" },
 };
 
-// F3 fix: parse as local midnight to avoid UTC off-by-one
 function formatDate(dateStr) {
   if (!dateStr) return "—";
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const parsedDate = dateStr.includes("T") ? new Date(dateStr) : new Date(dateStr + "T00:00:00");
+  return parsedDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function StatCard({ label, count, icon, colorClasses }) {
@@ -145,6 +149,7 @@ function DocumentCard({ doc, onDelete }) {
 
 export function DashboardPage({ setIsAuthenticated }) {
   const navigate = useNavigate();
+  const { isAdmin } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("reminders");
   const [activeStatusFilter, setActiveStatusFilter] = useState("all");
@@ -157,6 +162,7 @@ export function DashboardPage({ setIsAuthenticated }) {
   const [error, setError] = useState(null);
   const [userData, setUserData] = useState({ display_name: "User" });
   const [customCategories, setCustomCategories] = useState([]);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -200,6 +206,28 @@ export function DashboardPage({ setIsAuthenticated }) {
     const res = await fetch(`http://localhost:8000/documents/${uuid}`, { method: "DELETE", credentials: "include" });
     if (res.ok) setDocuments((p) => p.filter((d) => d.doc_uuid !== uuid));
     else setError("Failed to delete document.");
+  };
+
+  const handleGeneratePDF = async () => {
+    setGeneratingPDF(true);
+    try {
+      // Fetch all reminders for PDF
+      const res = await fetch("http://localhost:8000/reminders/dashboard", { 
+        credentials: "include" 
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const pdfDoc = generateUserReport(data.reminders || []);
+        downloadPDF(pdfDoc, `my-reminders-${new Date().toISOString().split('T')[0]}.pdf`);
+      } else {
+        setError("Failed to fetch data for PDF generation");
+      }
+    } catch (err) {
+      setError("Error generating PDF: " + err.message);
+    } finally {
+      setGeneratingPDF(false);
+    }
   };
 
   const expiredCount = reminders.filter((r) => r.status === "expired").length;
@@ -335,10 +363,12 @@ export function DashboardPage({ setIsAuthenticated }) {
                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     My Profile
                   </Link>
-                  <Link to="/admin/notifications" onClick={() => setProfileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                    Notification Logs
-                  </Link>
+                  {isAdmin && (
+                    <Link to="/admin/notifications" onClick={() => setProfileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                      Notification Logs
+                    </Link>
+                  )}
                   <button onClick={() => { setProfileMenuOpen(false); handleLogout(); }} className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 font-medium">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                     Log Out
@@ -381,9 +411,21 @@ export function DashboardPage({ setIsAuthenticated }) {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-sm text-gray-500">{filteredReminders.length} result{filteredReminders.length !== 1 ? "s" : ""}{(hasActiveFilters || searchQuery) && " (filtered)"}</p>
-                    {(hasActiveFilters || searchQuery) && (
-                      <button onClick={() => { setActiveStatusFilter("all"); setActiveCategoryFilter("all"); setSearchQuery(""); }} className="text-sm text-gray-500 hover:text-gray-800 underline">Clear filters</button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {(hasActiveFilters || searchQuery) && (
+                        <button onClick={() => { setActiveStatusFilter("all"); setActiveCategoryFilter("all"); setSearchQuery(""); }} className="text-sm text-gray-500 hover:text-gray-800 underline">Clear filters</button>
+                      )}
+                      <button
+                        onClick={handleGeneratePDF}
+                        disabled={generatingPDF}
+                        className="flex items-center gap-2 px-4 py-2 bg-navy-600 text-white rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
+                      >
+                        <svg className={`w-4 h-4 ${generatingPDF ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        {generatingPDF ? "Generating..." : "Generate PDF Report"}
+                      </button>
+                    </div>
                   </div>
                   {filteredReminders.length === 0 ? (
                     <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">

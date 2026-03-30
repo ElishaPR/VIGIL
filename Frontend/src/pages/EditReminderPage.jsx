@@ -42,7 +42,7 @@ const toLocalDateInput = (utcString) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-export function EditReminderPage() {
+export default function EditReminderPage() {
   const navigate = useNavigate();
   const { id: reminderUuid } = useParams();
   const fileInputRef = useRef(null);
@@ -61,6 +61,7 @@ export function EditReminderPage() {
   const [priority, setPriority] = useState("medium");
   const [initialPushNotification, setInitialPushNotification] = useState(false);
   const [pushNotification, setPushNotification] = useState(false);
+  const [documentTitle, setDocumentTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [filePreview, setFilePreview] = useState(null);
   const [showCropModal, setShowCropModal] = useState(false);
@@ -113,7 +114,11 @@ export function EditReminderPage() {
           setRepeatType(data.repeat_type || "none");
 
           if (data.expiry_date) {
-            setExpiryDate(toLocalDateInput(data.expiry_date));
+            // expiry_date comes as plain date string "YYYY-MM-DD" — append T00:00:00 to avoid UTC shift
+            const rawDate = data.expiry_date.includes("T") ? data.expiry_date : data.expiry_date + "T00:00:00";
+            const d = new Date(rawDate);
+            const pad = (n) => String(n).padStart(2, "0");
+            setExpiryDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
           }
           if (data.schedule_type) {
             setScheduleType(data.schedule_type.toLowerCase() === "custom" ? "custom" : "default");
@@ -128,39 +133,24 @@ export function EditReminderPage() {
             setCustomCategory(data.category || "");
           }
 
-          // Set file preview if document exists
-          if (data.document_url && data.document_name) {
-            setFilePreview(data.document_url);
-            // Extract UUID from URL: http://localhost:8000/documents/{uuid}
-            const urlParts = data.document_url.split('/');
-            const docUuid = urlParts[urlParts.length - 1];
-            setExistingDocumentUuid(docUuid);
-            
-            console.log("Document extraction:", {
-              full_url: data.document_url,
-              extracted_uuid: docUuid,
-              document_name: data.document_name
-            });
-            
-            // Set file type based on document name
-            if (data.document_name.endsWith(".pdf")) {
-              setFileType("pdf");
-            } else if (data.document_name.endsWith(".docx") || data.document_name.endsWith(".doc")) {
-              setFileType("docx");
-            } else if (data.document_name.endsWith(".xlsx") || data.document_name.endsWith(".xls")) {
-              setFileType("xlsx");
-            } else if (data.document_name.endsWith(".txt")) {
-              setFileType("txt");
-            } else if (data.document_name.match(/\.(jpg|jpeg|png|webp|heic)$/i)) {
-              setFileType("image");
-            } else {
-              setFileType("file");
+          // doc_uuid comes directly from backend now
+          if (data.doc_uuid) {
+            setExistingDocumentUuid(data.doc_uuid);
+            setDocumentTitle(data.document_name || "");
+            if (data.document_name) {
+              if (data.document_name.endsWith(".pdf")) setFileType("pdf");
+              else if (data.document_name.match(/\.(jpg|jpeg|png|webp|heic)$/i)) setFileType("image");
+              else if (data.document_name.match(/\.(docx?)$/i)) setFileType("docx");
+              else if (data.document_name.match(/\.(xlsx?)$/i)) setFileType("xlsx");
+              else if (data.document_name.endsWith(".txt")) setFileType("txt");
+              else setFileType("file");
             }
+            // For virtual doc (no actual file) still set uuid so preview loads
           } else {
-            console.log("No document found in reminder response");
             setExistingDocumentUuid(null);
             setFilePreview(null);
             setFileType(null);
+            setDocumentTitle("");
           }
         } else {
           updateError("api", "Failed to load reminder");
@@ -315,6 +305,17 @@ export function EditReminderPage() {
 
   const validateForm = () => {
     const newErrors = {};
+    console.log("DEBUG: validateForm called");
+    console.log("DEBUG - Form values:", {
+      reminderTitle: reminderTitle?.trim(),
+      docCategory,
+      customCategory,
+      isCustomCategory,
+      expiryDate,
+      scheduleType,
+      reminderAt,
+      notes: notes?.trim()
+    });
 
     const finalCategory = isCustomCategory ? customCategory.trim() : docCategory;
     if (!finalCategory) {
@@ -362,17 +363,19 @@ export function EditReminderPage() {
         }
       }
     }
-
     if (notes.trim().length > 500) {
       newErrors.notes = "Notes must be 500 characters or less.";
     }
 
     setErrors(newErrors);
+    console.log("DEBUG - Validation errors:", newErrors);
+    console.log("DEBUG - Form valid:", Object.keys(newErrors).length === 0);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("DEBUG: handleSubmit called");
 
     if (!validateForm()) {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -385,12 +388,10 @@ export function EditReminderPage() {
 
     try {
       const formData = new FormData();
-
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       formData.append("timezone", timezone);
 
       const finalCategory = isCustomCategory ? customCategory.trim() : docCategory;
-
       formData.append("category", finalCategory);
       formData.append("reminder_title", reminderTitle.trim());
       formData.append("schedule_type", scheduleType.toUpperCase());
@@ -398,43 +399,27 @@ export function EditReminderPage() {
       formData.append("repeat_type", repeatType);
       formData.append("priority", priority);
       formData.append("enable_push", pushNotification ? "true" : "false");
+
       const pushJustEnabled = !initialPushNotification && pushNotification;
       if (pushJustEnabled) {
-
         let permission = Notification.permission;
-
         if (permission !== "granted") {
           permission = await Notification.requestPermission();
         }
-
         if (permission === "granted") {
-
           const registration = await navigator.serviceWorker.ready;
-
-          try {
-            await deleteToken(messaging);
-          } catch {
-            console.log("No previous token");
-          }
-
+          try { await deleteToken(messaging); } catch { /* no previous token */ }
           const token = await getToken(messaging, {
             vapidKey: import.meta.env.VITE_FIREBASE_PUBLIC_VAPID_KEY,
             serviceWorkerRegistration: registration
           });
-
           if (token) {
             await fetch("http://localhost:8000/fcm/register", {
-              method: "POST",
-              credentials: "include",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                fcm_token: token
-              })
+              method: "POST", credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ fcm_token: token })
             });
           }
-
         } else {
           updateError("api", "Push notification permission denied.");
           setPushNotification(false);
@@ -446,11 +431,12 @@ export function EditReminderPage() {
       if (scheduleType === "custom" && reminderAt) {
         formData.append("reminder_at", toUTCISOString(reminderAt));
       }
+      // notes always sent regardless of schedule type
+      formData.append("notes", notes.trim());
 
-      if (notes.trim()) {
-        formData.append("notes", notes.trim());
+      if (documentTitle.trim()) {
+        formData.append("document_title", documentTitle.trim());
       }
-
       if (uploadedFile) {
         formData.append("document", uploadedFile);
       }
@@ -923,22 +909,20 @@ export function EditReminderPage() {
             </div>
           </section>
 
-          {/* Document Preview Section */}
+          {/* Unified Document Section: preview + replace in one place */}
           {existingDocumentUuid && !uploadedFile && (
             <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Current Document
+                Document
               </h2>
-              <div className="text-xs text-gray-500 mb-2">
-                Debug: UUID = {existingDocumentUuid}
-              </div>
-              <DocumentPreview 
-                documentUuid={existingDocumentUuid} 
+              <DocumentPreview
+                documentUuid={existingDocumentUuid}
                 onRemove={removeExistingDocument}
-                showExpiry={true}  // Show expiry in reminder context
+                onReplace={() => fileInputRef.current?.click()}
+                showExpiry={true}
               />
             </div>
           )}
@@ -1090,6 +1074,20 @@ export function EditReminderPage() {
 
                   {/* File Info & Actions */}
                   <div className="flex-1 min-w-0 w-full">
+                    {/* Editable Document Title */}
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Document Title
+                      </label>
+                      <input
+                        type="text"
+                        value={documentTitle}
+                        onChange={(e) => setDocumentTitle(e.target.value)}
+                        placeholder="Enter document title"
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20 outline-none transition-all text-gray-900 text-sm"
+                      />
+                    </div>
+                    
                     <p className="font-semibold text-gray-900 truncate">
                       {uploadedFile ? (uploadedFile.displayName || uploadedFile.name) : "Current Document"}
                     </p>

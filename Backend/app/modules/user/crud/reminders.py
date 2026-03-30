@@ -32,7 +32,7 @@ def create_reminder(
     )
 
     db.add(reminder)
-    db.commit()
+    db.flush()
     db.refresh(reminder)
 
     return reminder
@@ -47,7 +47,7 @@ def get_reminder_by_uuid(db: Session, reminder_uuid: str):
 
 def update_reminder(db: Session, reminder: Reminder):
 
-    db.commit()
+    db.flush()
     db.refresh(reminder)
 
     return reminder

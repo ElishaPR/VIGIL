@@ -35,7 +35,7 @@ def get_current_user(
         if payload.get("type") != "access":
             raise HTTPException(401, "Invalid token type")
 
-        user_id = payload.get("user_id")
+        user_uuid = payload.get("user_uuid")
 
     except JWTError:
         raise HTTPException(401, "Invalid or expired token")
@@ -44,7 +44,7 @@ def get_current_user(
     except Exception:
         raise HTTPException(401, "Invalid token")
 
-    user = db.query(User).filter(User.user_id == user_id).first()
+    user = db.query(User).filter(User.user_uuid == str(user_uuid)).first()
 
     if not user:
         raise HTTPException(401, "User not found")

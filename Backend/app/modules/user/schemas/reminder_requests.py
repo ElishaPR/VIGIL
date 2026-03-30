@@ -5,7 +5,7 @@ from fastapi import Form
 
 
 class AddReminderRequest(BaseModel):
-    category: str = Field(..., min_length=1, max_length=25)
+    category: Optional[str] = Field(default=None, max_length=25)
     title: str = Field(..., min_length=3, max_length=100)
     expiry_date: str
     schedule_type: str

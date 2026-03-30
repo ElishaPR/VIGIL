@@ -122,7 +122,7 @@ def create_reminder_service(
     return reminder
 
 
-async def update_reminder_service(
+def update_reminder_service(
     db,
     reminder_uuid,
     user_id,
@@ -139,7 +139,8 @@ async def update_reminder_service(
     expiry_date_provided: bool = False,
     user_timezone=pytz.UTC,
     new_doc_id: int | None = None,
-    remove_document: bool = False
+    remove_document: bool = False,
+    document_title: str | None = None
 ):
     reminder = db.query(Reminder).filter(
         Reminder.reminder_uuid == reminder_uuid,
@@ -185,10 +186,10 @@ async def update_reminder_service(
         # Only validate if not strictly past to afford safe defaults
         if reminder_utc <= now_utc and active_expiry != today_local:
             pass # Ignore if it's naturally past default but don't fail, or do we? Wait create throws if in the past
-            
-        reminder.reminder_at = reminder_utc
-        # Bug fix: if the reminder was already sent but we update its time, restore status
-        reminder.reminder_status = "PENDING"
+        else:
+            reminder.reminder_at = reminder_utc
+            # Bug fix: if the reminder was already sent but we update its time, restore status
+            reminder.reminder_status = "PENDING"
         
     elif reminder.schedule_type == "CUSTOM" and reminder_at:
         reminder_local = reminder_at.astimezone(user_timezone)
@@ -219,19 +220,24 @@ async def update_reminder_service(
 
     if remove_document:
         reminder.doc_id = None
-    elif new_doc_id:
+    elif new_doc_id is not None:
         reminder.doc_id = new_doc_id
+    # IMPORTANT: Existing doc_id is preserved by default
+    # Only change when explicitly removing or replacing
 
     # Update associated document if it exists (and we didn't just remove it)
     if not remove_document and doc:
         if category and category.strip():
             doc.doc_category = category.strip()
-        if reminder_title and reminder_title.strip():
+        if document_title and document_title.strip():
+            doc.doc_title = document_title.strip()
+        elif reminder_title and reminder_title.strip():
             doc.doc_title = reminder_title.strip()
         if expiry_date_provided:
             doc.expiry_date = expiry_date
 
-    return update_reminder(db, reminder)
+    result = update_reminder(db, reminder)
+    return result
 
 
 def delete_reminder_service(db, reminder_uuid, user_id):

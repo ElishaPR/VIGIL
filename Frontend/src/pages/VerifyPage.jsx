@@ -34,9 +34,20 @@ export function VerifyPage({ setIsAuthenticated }) {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
+  const handleVerifyRef = useRef();
+  const hasAutoSubmitted = useRef(false);
+
   useEffect(() => {
-    if (otp.join("").length === OTP_LENGTH) {
-      handleVerify();
+    handleVerifyRef.current = handleVerify;
+  });
+
+  useEffect(() => {
+    const code = otp.join("");
+    if (code.length === OTP_LENGTH && !hasAutoSubmitted.current) {
+      hasAutoSubmitted.current = true;
+      handleVerifyRef.current();
+    } else if (code.length < OTP_LENGTH) {
+      hasAutoSubmitted.current = false;
     }
   }, [otp]);
 

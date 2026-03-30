@@ -8,6 +8,8 @@ from app.modules.user.models.documents import Document
 from app.modules.user.models.users import User
 from app.modules.user.models.user_fcm_tokens import User_FCM_Token
 
+from app.modules.admin.models.notification_logs import NotificationLog
+
 from app.modules.user.services.email_service import send_email
 from app.modules.user.services.push_notification_service import send_push_notification
 
@@ -104,8 +106,22 @@ def check_and_send_notifications(db: Session):
                         reminder_title=reminder.reminder_title,
                         reminder_uuid=str(reminder.reminder_uuid)
                     )
+                    db.add(NotificationLog(
+                        user_id=user_id,
+                        reminder_id=reminder.reminder_id,
+                        channel="EMAIL",
+                        status="SUCCESS",
+                        error_message=None
+                    ))
                 except Exception as e:
                     print("Email failed:", e)
+                    db.add(NotificationLog(
+                        user_id=user_id,
+                        reminder_id=reminder.reminder_id,
+                        channel="EMAIL",
+                        status="FAILED",
+                        error_message=str(e)
+                    ))
 
             # -------- PUSH --------
             if reminder.push_notification:
@@ -115,8 +131,8 @@ def check_and_send_notifications(db: Session):
                 for fcm_token in fcm_tokens:
                     try:
                         data = {
-                            "reminder_id": str(reminder.reminder_id),
-                            "doc_id": str(reminder.doc_id) if reminder.doc_id else "",
+                            "reminder_uuid": str(reminder.reminder_uuid),
+                            "doc_uuid": str(doc.doc_uuid) if doc else "",
                             "type": "reminder"
                         }
 
@@ -128,9 +144,23 @@ def check_and_send_notifications(db: Session):
                             reminder_uuid=reminder.reminder_uuid,
                             data=data
                         )
+                        db.add(NotificationLog(
+                            user_id=user_id,
+                            reminder_id=reminder.reminder_id,
+                            channel="PUSH",
+                            status="SUCCESS",
+                            error_message=None
+                        ))
 
                     except Exception as e:
                         print("Push error:", e)
+                        db.add(NotificationLog(
+                            user_id=user_id,
+                            reminder_id=reminder.reminder_id,
+                            channel="PUSH",
+                            status="FAILED",
+                            error_message=str(e)
+                        ))
 
             # -------- REPEAT HANDLING --------
             next_time = get_next_reminder_time(reminder)

@@ -54,7 +54,6 @@ def get_reminder(
     current_user: User = Depends(get_current_user)
 ):
 
-    # B2 fix: use correct field names and query document separately
     try:
         reminder = get_reminder_by_uuid_service(
             db, reminder_uuid, current_user.user_id
@@ -81,6 +80,10 @@ def get_reminder(
         "email_notification": reminder.email_notification,
         "notes": reminder.notes,
         "status": reminder.reminder_status,
+        # Always return doc_uuid if doc exists (even virtual) — frontend uses this to load preview
+        "doc_uuid": str(doc.doc_uuid) if doc else None,
+        "is_virtual_doc": doc.storage_key.startswith("virtual/") if doc else False,
+        # Only expose document_url/name for non-virtual (has real file)
         "document_url": f"http://localhost:8000/documents/{doc.doc_uuid}" if doc and doc.doc_size > 0 else None,
         "document_name": doc.doc_title if doc and doc.doc_size > 0 else None
     }
@@ -166,6 +169,10 @@ async def create_reminder_api(
             user_timezone=user_tz
         )
 
+        # Commit the whole transaction here (CRUD uses flush now)
+        db.commit()
+        db.refresh(reminder)
+
     except HTTPException:
         db.rollback()
         raise
@@ -192,6 +199,7 @@ async def update_reminder(
     repeat_type: Optional[str] = Form(None),
     priority: Optional[str] = Form(None),
     notes: Optional[str] = Form(None),
+    document_title: Optional[str] = Form(None),
     timezone: str = Form("UTC"),
     enable_push: bool = Form(False),
     email_notification: bool = Form(True),
@@ -225,28 +233,65 @@ async def update_reminder(
             raise HTTPException(400, "Invalid expiry_date format. Use YYYY-MM-DD.")
 
     try:
-        # Document handling in update
-        doc_id = None
         current_reminder = get_reminder_by_uuid_service(db, reminder_uuid, current_user.user_id)
-        
-        if remove_document:
-            # Note: The service will handle setting doc_id to null if it exists
-            pass 
-        elif document and document.filename:
-            # Create new doc
-            new_doc = await create_document_service(
-                db=db,
-                user_id=current_user.user_id,
-                user_uuid=str(current_user.user_uuid),
-                category=category or "general",
-                title=reminder_title or current_reminder.reminder_title,
-                expiry_date=expiry_date_parsed or (db.query(Document).filter(Document.doc_id == current_reminder.doc_id).first().expiry_date if current_reminder.doc_id else None),
-                notes=notes,
-                file=document
-            )
-            doc_id = new_doc.doc_id
 
-        reminder = await update_reminder_service(
+        # Fetch existing linked document (if any)
+        existing_doc = None
+        if current_reminder.doc_id:
+            existing_doc = db.query(Document).filter(
+                Document.doc_id == current_reminder.doc_id
+            ).first()
+
+        # Determine the doc_id to use after update
+        doc_id = current_reminder.doc_id
+
+        if remove_document:
+            # Unlink doc from reminder
+            doc_id = None
+            # If the linked doc was virtual, delete it (it's an orphan now)
+            if existing_doc and existing_doc.storage_key.startswith("virtual/"):
+                db.delete(existing_doc)
+
+        elif document and document.filename:
+            if existing_doc and existing_doc.storage_key.startswith("virtual/"):
+                # UPGRADE: convert virtual doc to real by uploading into it
+                from app.modules.user.services.document_service import create_document_service as _create_doc
+                from app.modules.user.services.supabase_service import upload_file, encrypt_file
+                from app.modules.user.services.document_service import validate_file
+                import uuid as _uuid
+
+                validate_file(document)
+                contents = await document.read()
+                from app.core.config import settings
+                if len(contents) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+                    raise HTTPException(400, "File too large")
+                encrypted = encrypt_file(contents)
+                storage_key = f"{current_user.user_uuid}/{_uuid.uuid4()}.{document.filename.rsplit('.', 1)[-1]}"
+                upload_file(storage_key, encrypted, document.content_type)
+
+                existing_doc.storage_key = storage_key
+                existing_doc.doc_size = len(contents)
+                existing_doc.mime_type = document.content_type
+                if expiry_date_parsed:
+                    existing_doc.expiry_date = expiry_date_parsed
+                if category:
+                    existing_doc.doc_category = category.strip()
+                # Keep same doc_id — reminder link unchanged
+            else:
+                # Create a brand new document record and link it
+                new_doc = await create_document_service(
+                    db=db,
+                    user_id=current_user.user_id,
+                    user_uuid=str(current_user.user_uuid),
+                    category=category or "general",
+                    title=reminder_title or current_reminder.reminder_title,
+                    expiry_date=expiry_date_parsed or (existing_doc.expiry_date if existing_doc else None),
+                    notes=notes,
+                    file=document
+                )
+                doc_id = new_doc.doc_id
+
+        reminder = update_reminder_service(
             db,
             reminder_uuid,
             current_user.user_id,
@@ -263,9 +308,15 @@ async def update_reminder(
             expiry_date_provided=expiry_date_provided,
             user_timezone=pytz.timezone(timezone.strip()) if timezone and timezone.strip() in pytz.all_timezones else pytz.UTC,
             new_doc_id=doc_id,
-            remove_document=remove_document
+            remove_document=remove_document,
+            document_title=document_title
         )
+
+        db.commit()
+        db.refresh(reminder)
+
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
         db.rollback()

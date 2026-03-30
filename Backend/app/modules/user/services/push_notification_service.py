@@ -37,10 +37,10 @@ def send_push_notification(
         response = messaging.send(message)
         print("Push sent:", response)
 
-        update_push_status(db, token, "SUCCESS")
+        update_push_status(db, token, "SUCCESS", commit=True)
 
     except Exception as e:
 
-        update_push_status(db, token, "FAILED")
+        update_push_status(db, token, "FAILED", commit=True)
 
         print("Push failed:", e)

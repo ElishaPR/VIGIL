@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 10
     ENCRYPTION_SECRET: str
     DATABASE_URL: str
-    ADMIN_EMAIL: str = "elishapr36@zohomail.in"
+    ADMIN_EMAIL: str
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -58,6 +58,7 @@ def get_notification_logs(
         query = query.filter(NotificationLog.channel == channel_upper)
 
     total = query.count()
+    total_failed = db.query(NotificationLog).filter(NotificationLog.status == "FAILED").count()
 
     offset = (page - 1) * page_size
     rows = (
@@ -71,7 +72,6 @@ def get_notification_logs(
     logs = []
     for row in rows:
         logs.append({
-            "log_id": row.log_id,
             "channel": row.channel,
             "status": row.status,
             "error_message": row.error_message,
@@ -83,6 +83,7 @@ def get_notification_logs(
 
     return {
         "total": total,
+        "total_failed": total_failed,
         "page": page,
         "page_size": page_size,
         "pages": (total + page_size - 1) // page_size,

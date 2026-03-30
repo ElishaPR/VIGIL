@@ -109,7 +109,6 @@ def signup(
         pass  # email failure should not prevent signup
 
     access_token = create_access_token({
-        "user_id": user.user_id,
         "user_uuid": str(user.user_uuid),
         "email": user.email_address,
         "type": "access"
@@ -170,7 +169,6 @@ def login(
             content={"detail": "Please verify your email."}
         )
         access_token = create_access_token({
-            "user_id": user.user_id,
             "user_uuid": str(user.user_uuid),
             "email": user.email_address,
             "type": "access"
@@ -187,7 +185,6 @@ def login(
 
     # Single token creation for verified users (B8 fix)
     access_token = create_access_token({
-        "user_id": user.user_id,
         "user_uuid": str(user.user_uuid),
         "email": user.email_address,
         "type": "access"
@@ -209,7 +206,7 @@ def login(
 
 
 @router.post("/logout", status_code=200)
-def logout(response: Response):
+def logout(response: Response, current_user: User = Depends(get_current_user)):
 
     response.delete_cookie(
         key="access_token",
@@ -222,7 +219,7 @@ def logout(response: Response):
 
 
 @router.post("/logout-all", status_code=200)
-def logout_all(response: Response):
+def logout_all(response: Response, current_user: User = Depends(get_current_user)):
     """
     Logs out from all devices by clearing the current session cookie.
     A full multi-device logout would require a token blacklist table in the DB.

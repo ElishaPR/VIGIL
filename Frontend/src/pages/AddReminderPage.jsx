@@ -637,7 +637,6 @@ export function AddReminderPage() {
                   <p className="text-xs text-gray-500">{reminderTitle.length}/100</p>
                 </div>
               </div>
-1:            </div>
             {/* End Reminder Title */}
             
             {/* Expiry Date */}
@@ -686,7 +685,7 @@ export function AddReminderPage() {
                 </p>
               )}
             </div>
-            
+          </div>
           </section>
 
           <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">

@@ -194,6 +194,7 @@ async def update_document_service(
     if notes is not None:
         document.notes = notes.strip() if notes else None
 
-
+    if expiry_date is not None:
+        document.expiry_date = expiry_date if expiry_date else None
 
     return update_document(db, document)

@@ -93,7 +93,13 @@ def get_signed_url(storage_key: str):
         )
         
         logger.info(f"Signed URL generated successfully")
-        return response["signedURL"]
+        # SDK v2 returns a dict {'signedURL': '...'}, SDK v1 returns object with .signed_url
+        if isinstance(response, dict):
+            url = response.get("signedURL") or response.get("signed_url") or response.get("url")
+            if not url:
+                raise ValueError(f"No signed URL in Supabase response: {response}")
+            return url
+        return response.signed_url
         
     except Exception as e:
         logger.error(f"Signed URL generation failed for {storage_key}: {type(e).__name__}: {str(e)}")

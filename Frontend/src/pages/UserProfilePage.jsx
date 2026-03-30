@@ -203,7 +203,7 @@ export function UserProfilePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ new_email_address: newEmail, otp: code }),
+        body: JSON.stringify({ otp: code }),
       });
 
       if (response.ok) {
