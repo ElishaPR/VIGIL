@@ -10,6 +10,7 @@ from app.modules.user.models.users import User
 from app.modules.user.services.document_service import (
     create_document_service,
     list_documents_service,
+    list_standalone_documents_service,
     delete_document_service,
     update_document_service,
     get_document_file_service,
@@ -69,6 +70,17 @@ def list_documents(
     current_user: User = Depends(get_current_user)
 ):
     return list_documents_service(db, current_user.user_id)
+
+
+@router.get("/standalone/list")
+def list_standalone_documents(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List documents that are NOT linked to any reminder (standalone documents)
+    """
+    return list_standalone_documents_service(db, current_user.user_id)
 
 
 @router.get("/{doc_uuid}")

@@ -13,6 +13,7 @@ from app.modules.user.crud.reminders import (
     update_reminder,
     delete_reminder
 )
+from app.modules.user.services.supabase_service import delete_file
 
 DEFAULT_REMINDER_HOUR = 9
 DEFAULT_REMINDER_MINUTE = 0
@@ -142,6 +143,7 @@ def update_reminder_service(
     remove_document: bool = False,
     document_title: str | None = None
 ):
+    print(f"[DEBUG SERVICE] Received new_doc_id: {new_doc_id}, remove_document: {remove_document}")
     reminder = db.query(Reminder).filter(
         Reminder.reminder_uuid == reminder_uuid,
         Reminder.user_id == user_id
@@ -219,9 +221,13 @@ def update_reminder_service(
     reminder.email_notification = email_notification
 
     if remove_document:
+        print(f"[DEBUG SERVICE] Setting doc_id to None because remove_document=True")
         reminder.doc_id = None
     elif new_doc_id is not None:
+        print(f"[DEBUG SERVICE] Setting doc_id to {new_doc_id} (new_doc_id)")
         reminder.doc_id = new_doc_id
+    else:
+        print(f"[DEBUG SERVICE] Preserving existing doc_id: {reminder.doc_id}")
     # IMPORTANT: Existing doc_id is preserved by default
     # Only change when explicitly removing or replacing
 
@@ -249,6 +255,20 @@ def delete_reminder_service(db, reminder_uuid, user_id):
 
     if not reminder:
         raise HTTPException(404, "Reminder not found")
+
+    # Fetch and delete associated document if exists
+    if reminder.doc_id:
+        doc = db.query(Document).filter(Document.doc_id == reminder.doc_id).first()
+        if doc:
+            # Delete file from Supabase (if not virtual)
+            if doc.storage_key and not doc.storage_key.startswith("virtual/"):
+                try:
+                    delete_file(doc.storage_key)
+                except Exception as e:
+                    # Log but don't fail - file might already be deleted
+                    print(f"Warning: Failed to delete file from Supabase: {e}")
+            # Delete document from DB
+            db.delete(doc)
 
     delete_reminder(db, reminder)
 

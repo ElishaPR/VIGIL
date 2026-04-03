@@ -234,6 +234,11 @@ async def update_reminder(
 
     try:
         current_reminder = get_reminder_by_uuid_service(db, reminder_uuid, current_user.user_id)
+        print(f"[DEBUG] Fetched reminder, current doc_id: {current_reminder.doc_id}")
+        print(f"[DEBUG] remove_document flag: {remove_document}")
+        print(f"[DEBUG] document file received: {document}")
+        if document:
+            print(f"[DEBUG] document.filename: {document.filename}")
 
         # Fetch existing linked document (if any)
         existing_doc = None
@@ -247,6 +252,7 @@ async def update_reminder(
 
         if remove_document:
             # Unlink doc from reminder
+            print(f"[DEBUG] Setting doc_id to None because remove_document=True")
             doc_id = None
             # If the linked doc was virtual, delete it (it's an orphan now)
             if existing_doc and existing_doc.storage_key.startswith("virtual/"):
@@ -256,7 +262,8 @@ async def update_reminder(
             if existing_doc and existing_doc.storage_key.startswith("virtual/"):
                 # UPGRADE: convert virtual doc to real by uploading into it
                 from app.modules.user.services.document_service import create_document_service as _create_doc
-                from app.modules.user.services.supabase_service import upload_file, encrypt_file
+                from app.modules.user.services.supabase_service import upload_file
+                from app.core.services.encryption_service import encrypt_file
                 from app.modules.user.services.document_service import validate_file
                 import uuid as _uuid
 
@@ -279,6 +286,15 @@ async def update_reminder(
                 # Keep same doc_id — reminder link unchanged
             else:
                 # Create a brand new document record and link it
+                # First, delete old file from Supabase if it exists (and not virtual)
+                if existing_doc and existing_doc.storage_key and not existing_doc.storage_key.startswith("virtual/"):
+                    from app.modules.user.services.supabase_service import delete_file
+                    try:
+                        delete_file(existing_doc.storage_key)
+                        print(f"[DEBUG] Deleted old file from Supabase: {existing_doc.storage_key}")
+                    except Exception as e:
+                        print(f"[DEBUG] Warning: Failed to delete old file from Supabase: {e}")
+                
                 new_doc = await create_document_service(
                     db=db,
                     user_id=current_user.user_id,
@@ -290,7 +306,14 @@ async def update_reminder(
                     file=document
                 )
                 doc_id = new_doc.doc_id
+                print(f"[DEBUG] Created new document, new doc_id: {doc_id}")
+                
+                # Delete old document record from DB to prevent orphans
+                if existing_doc:
+                    db.delete(existing_doc)
+                    print(f"[DEBUG] Deleted old document record from DB: {existing_doc.doc_id}")
 
+        print(f"[DEBUG] Final doc_id before calling update_reminder_service: {doc_id}")
         reminder = update_reminder_service(
             db,
             reminder_uuid,

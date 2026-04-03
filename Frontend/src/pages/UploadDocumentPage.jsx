@@ -143,7 +143,12 @@ export function UploadDocumentPage() {
 
       if (uploadedFile) {
         formData.append("file", uploadedFile);
+        console.log("Uploading file:", uploadedFile.name, "size:", uploadedFile.size, "type:", uploadedFile.type);
+      } else {
+        console.warn("No file selected for upload");
       }
+
+      console.log("Sending upload request to /documents/upload");
 
       const response = await fetch("http://localhost:8000/documents/upload", {
         method: "POST",
@@ -151,7 +156,10 @@ export function UploadDocumentPage() {
         body: formData,
       });
 
+      console.log("Upload response status:", response.status);
+
       const result = await response.json();
+      console.log("Upload response:", result);
 
       if (response.ok) {
         setSuccessMessage("Document uploaded successfully!");
@@ -160,9 +168,11 @@ export function UploadDocumentPage() {
           navigate("/dashboard");
         }, 1500);
       } else {
+        console.error("Upload failed:", result);
         updateError("api", result.detail || result.message || "Failed to upload document.");
       }
-    } catch {
+    } catch (error) {
+      console.error("Upload error:", error);
       updateError("api", "Server not connected. Please try again.");
     } finally {
       setLoading(false);

@@ -12,6 +12,8 @@ from app.modules.user.crud.documents import (
     update_document,
     delete_document
 )
+from app.modules.user.models.reminders import Reminder
+from sqlalchemy import exists
 from app.core.config import settings
 
 
@@ -99,6 +101,33 @@ def list_documents_service(db, user_id):
         }
         for d in docs
         if not d.storage_key.startswith("virtual/")  # Exclude virtual documents from list
+    ]
+
+
+def list_standalone_documents_service(db, user_id):
+    """
+    List documents that are NOT linked to any reminder (standalone documents)
+    """
+    from app.modules.user.models.documents import Document
+    
+    # Get all user documents that are not linked to any reminder
+    docs = db.query(Document).filter(
+        Document.user_id == user_id,
+        ~exists().where(Reminder.doc_id == Document.doc_id),
+        ~Document.storage_key.startswith("virtual/")  # Exclude virtual documents
+    ).all()
+    
+    return [
+        {
+            "doc_uuid": str(d.doc_uuid),
+            "doc_title": d.doc_title,
+            "doc_category": d.doc_category,
+            "doc_size": d.doc_size,
+            "mime_type": d.mime_type,
+            "created_at": d.created_at.isoformat(),
+            "is_virtual": False
+        }
+        for d in docs
     ]
 
 

@@ -22,7 +22,8 @@ export function DocumentsPage() {
     const fetchDocuments = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:8000/documents/list", {
+        // Use standalone endpoint to get documents not linked to reminders
+        const response = await fetch("http://localhost:8000/documents/standalone/list", {
           credentials: "include"
         });
 

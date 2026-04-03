@@ -109,6 +109,7 @@ def signup(
         pass  # email failure should not prevent signup
 
     access_token = create_access_token({
+        "user_id": user.user_id,
         "user_uuid": str(user.user_uuid),
         "email": user.email_address,
         "type": "access"
@@ -169,6 +170,7 @@ def login(
             content={"detail": "Please verify your email."}
         )
         access_token = create_access_token({
+            "user_id": user.user_id,
             "user_uuid": str(user.user_uuid),
             "email": user.email_address,
             "type": "access"
@@ -185,6 +187,7 @@ def login(
 
     # Single token creation for verified users (B8 fix)
     access_token = create_access_token({
+        "user_id": user.user_id,
         "user_uuid": str(user.user_uuid),
         "email": user.email_address,
         "type": "access"

@@ -68,6 +68,7 @@ export default function EditReminderPage() {
   const [cropImage, setCropImage] = useState(null);
   const [cropSettings, setCropSettings] = useState({ x: 0, y: 0, width: 100, height: 100 });
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [fileDisplayName, setFileDisplayName] = useState("");
   const [removeExistingFile, setRemoveExistingFile] = useState(false);
   const [fileType, setFileType] = useState(null);
   const [existingDocumentUuid, setExistingDocumentUuid] = useState(null);
@@ -94,6 +95,19 @@ export default function EditReminderPage() {
   // Fetch reminder data on mount
   useEffect(() => {
     const fetchReminder = async () => {
+      // CRITICAL FIX: Reset all file-related states before fetching new data
+      // This prevents stale state from previous edits from causing issues
+      setRemoveExistingFile(false);
+      setUploadedFile(null);
+      setFileDisplayName("");
+      setFilePreview(null);
+      setExistingDocumentUuid(null);
+      setDocumentTitle("");
+      setFileType(null);
+      setCropImage(null);
+      setShowCropModal(false);
+      setErrors({});
+
       try {
         setLoading(true);
         const response = await fetch(`http://localhost:8000/reminders/${reminderUuid}`, {
@@ -220,7 +234,6 @@ export default function EditReminderPage() {
 
     clearError("file");
     setUploadedFile(file);
-    setRemoveExistingFile(true); // Treat new upload as a replacement
 
     // Create preview for images
     if (file.type.startsWith("image/")) {
@@ -966,13 +979,9 @@ export default function EditReminderPage() {
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    value={uploadedFile.displayName || uploadedFile.name.split('.')[0]}
+                    value={fileDisplayName || uploadedFile.name.split('.')[0]}
                     onChange={(e) => {
-                      const newName = e.target.value;
-                      setUploadedFile({
-                        ...uploadedFile,
-                        displayName: newName,
-                      });
+                      setFileDisplayName(e.target.value);
                     }}
                     placeholder="Enter file name"
                     className="flex-1 px-3 py-2 rounded-lg border border-navy-300 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20 outline-none transition-all text-gray-900 text-sm"
@@ -1093,7 +1102,7 @@ export default function EditReminderPage() {
                     </div>
                     
                     <p className="font-semibold text-gray-900 truncate">
-                      {uploadedFile ? (uploadedFile.displayName || uploadedFile.name) : "Current Document"}
+                      {uploadedFile ? (fileDisplayName || uploadedFile.name) : "Current Document"}
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
                       {fileType === "pdf" ? "PDF Document" : "Image File"}

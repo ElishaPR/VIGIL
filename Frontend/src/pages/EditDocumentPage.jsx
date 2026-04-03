@@ -31,6 +31,10 @@ export function EditDocumentPage() {
 
   useEffect(() => {
     const fetchDoc = async () => {
+      // FIX: Reset all states before fetching to prevent stale data
+      setUploadedFile(null);
+      setErrors({});
+      
       try {
         setLoading(true);
         // Use /preview which returns full info: doc_title, doc_category, file_extension, is_virtual
@@ -94,7 +98,14 @@ export function EditDocumentPage() {
       const finalCategory = isCustomCategory ? customCategory.trim() : category;
       formData.append("category", finalCategory);
       formData.append("title", title.trim());
-      if (uploadedFile) formData.append("file", uploadedFile);
+      if (uploadedFile) {
+        formData.append("file", uploadedFile);
+        console.log("Updating doc with file:", uploadedFile.name, "size:", uploadedFile.size);
+      } else {
+        console.log("Updating doc metadata only (no new file)");
+      }
+
+      console.log("Sending PUT request to /documents/" + docUuid);
 
       const res = await fetch(`http://localhost:8000/documents/${docUuid}`, {
         method: "PUT",
@@ -102,15 +113,20 @@ export function EditDocumentPage() {
         body: formData,
       });
 
+      console.log("Update response status:", res.status);
+
       const result = await res.json();
+      console.log("Update response:", result);
 
       if (res.ok) {
         setSuccessMsg("Document updated successfully!");
         setTimeout(() => navigate("/dashboard"), 1500);
       } else {
+        console.error("Update failed:", result);
         setError("api", result.detail || "Failed to update document.");
       }
-    } catch {
+    } catch (error) {
+      console.error("Update error:", error);
       setError("api", "Server not connected. Please try again.");
     } finally {
       setSaving(false);
