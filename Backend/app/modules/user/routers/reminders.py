@@ -251,12 +251,19 @@ async def update_reminder(
         doc_id = current_reminder.doc_id
 
         if remove_document:
-            # Unlink doc from reminder
-            print(f"[DEBUG] Setting doc_id to None because remove_document=True")
-            doc_id = None
-            # If the linked doc was virtual, delete it (it's an orphan now)
-            if existing_doc and existing_doc.storage_key.startswith("virtual/"):
-                db.delete(existing_doc)
+            # Remove file from storage but keep document record with metadata
+            print(f"[DEBUG] Removing file but keeping doc_id: {doc_id}")
+            if existing_doc and existing_doc.storage_key and not existing_doc.storage_key.startswith("virtual/"):
+                from app.modules.user.services.supabase_service import delete_file
+                try:
+                    delete_file(existing_doc.storage_key)
+                    print(f"[DEBUG] Deleted file from Supabase: {existing_doc.storage_key}")
+                except Exception as e:
+                    print(f"[DEBUG] Warning: Failed to delete file from Supabase: {e}")
+                # Mark as virtual/removed - keeps doc record with category/expiry
+                existing_doc.storage_key = f"virtual/removed/{existing_doc.doc_uuid}"
+                existing_doc.doc_size = 0
+            # Keep doc_id - don't set to None
 
         elif document and document.filename:
             if existing_doc and existing_doc.storage_key.startswith("virtual/"):

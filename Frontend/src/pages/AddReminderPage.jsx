@@ -1,8 +1,15 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { messaging } from "../firebase";
 import { getToken, deleteToken } from "firebase/messaging";
 import { PrimaryButton } from "../components/Auth/PrimaryButton";
+import { MultiFileScanner } from "../components/MultiFileScanner";
+import FileUploader from "../components/FileUploader";
+import {
+  MAX_FILE_SIZE_MB,
+  ACCEPT_FILE_EXTENSIONS,
+  ACCEPT_IMAGE_TYPES,
+} from "../utils/fileConfig.js";
 
 // Category options
 const CATEGORY_OPTIONS = [
@@ -29,8 +36,6 @@ const REPEAT_OPTIONS = [
   { id: "yearly", label: "Yearly" },
 ];
 
-const MAX_FILE_SIZE_MB = 10;
-
 // Convert date (yyyy-mm-dd) to UTC ISO
 const toUTCISOString = (dateStr, time = "09:00:00") => {
   const local = new Date(`${dateStr}T${time}`);
@@ -41,7 +46,6 @@ export function AddReminderPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
-  const canvasRef = useRef(null);
 
   // Form state
   const [docCategory, setDocCategory] = useState("");
@@ -56,12 +60,13 @@ export function AddReminderPage() {
   const [priority, setPriority] = useState("medium");
   const [notes, setNotes] = useState("");
 
-  // File state
+  // File state (single file mode)
   const [uploadedFile, setUploadedFile] = useState(null);
-  const [filePreview, setFilePreview] = useState(null);
-  const [showCropModal, setShowCropModal] = useState(false);
-  const [cropImage, setCropImage] = useState(null);
-  const [cropSettings, setCropSettings] = useState({ x: 0, y: 0, width: 100, height: 100 });
+
+  // Multi-page scanner state
+  const [useMultiPageMode, setUseMultiPageMode] = useState(false);
+  const [scannedPages, setScannedPages] = useState([]);
+  const [generatedPDF, setGeneratedPDF] = useState(null);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -94,126 +99,29 @@ export function AddReminderPage() {
     return found ? found.label : "Select category";
   };
 
-  // Handle file selection
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      processFile(file);
-    }
-    setShowUploadOptions(false);
-  };
-
-  // Handle camera capture
-  const handleCameraCapture = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      processFile(file, true);
-    }
-    setShowUploadOptions(false);
-  };
-
-  // Process the selected file
-  const processFile = (file, openCrop = false) => {
-    // Validate file type
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/heic",
-      "application/pdf",
-      "text/plain",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
-      updateError("file", "Unsupported file type. Please upload an image, PDF, or document.");
-      return;
-    }
-
-    // Check file size (10MB max)
-    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      updateError("file", "File size exceeds 10MB limit.");
-      return;
-    }
-
-    clearError("file");
-    setUploadedFile(file);
-
-    // Create preview for images
-    if (file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setFilePreview(e.target.result);
-        if (openCrop) {
-          setCropImage(e.target.result);
-          setShowCropModal(true);
-        }
-      };
-      reader.readAsDataURL(file);
+  const handleFileChange = (fileData) => {
+    if (fileData && fileData.file) {
+      setUploadedFile(fileData.file);
+      clearError("file");
     } else {
-      setFilePreview(null);
+      setUploadedFile(null);
     }
   };
 
-  // Remove uploaded file
-  const removeFile = () => {
-    setUploadedFile(null);
-    setFilePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
+  // Handle multi-page scanner PDF generation
+  const handlePDFGenerated = (pdfBlob, filename) => {
+    setGeneratedPDF({ blob: pdfBlob, name: filename });
+    setSuccessMessage(`PDF generated: ${filename}`);
   };
 
-  // Apply crop
-  const applyCrop = useCallback(() => {
-    if (!cropImage || !canvasRef.current) return;
-
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-
-      const scaleX = img.width / 100;
-      const scaleY = img.height / 100;
-
-      const cropX = cropSettings.x * scaleX;
-      const cropY = cropSettings.y * scaleY;
-      const cropWidth = cropSettings.width * scaleX;
-      const cropHeight = cropSettings.height * scaleY;
-
-      canvas.width = cropWidth;
-      canvas.height = cropHeight;
-
-      ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const croppedFile = new File([blob], uploadedFile?.name || "cropped-image.jpg", {
-            type: "image/jpeg",
-          });
-          setUploadedFile(croppedFile);
-          setFilePreview(canvas.toDataURL("image/jpeg"));
-        }
-        setShowCropModal(false);
-        setCropImage(null);
-      }, "image/jpeg");
-    };
-    img.src = cropImage;
-  }, [cropImage, cropSettings, uploadedFile]);
-
-  // Convert image to PDF
-  const convertToPDF = async () => {
-    if (!filePreview || !uploadedFile?.type.startsWith("image/")) return;
-
-    // This is a simple approach - for production, use a proper PDF library
-    updateError("api", "PDF conversion is processing...");
-    setTimeout(() => {
-      clearError("api");
-      setSuccessMessage("Note: For full PDF conversion, the server will process the image.");
-    }, 1000);
+  // Toggle between single file and multi-page mode
+  const toggleMultiPageMode = () => {
+    setUseMultiPageMode(!useMultiPageMode);
+    // Clear files when switching modes
+    setUploadedFile(null);
+    setScannedPages([]);
+    setGeneratedPDF(null);
+    clearError("file");
   };
 
   // Validate form
@@ -325,7 +233,10 @@ export function AddReminderPage() {
         formData.append("notes", notes.trim());
       }
 
-      if (uploadedFile) {
+      // Handle file upload - either single file or generated PDF from multi-page scanner
+      if (useMultiPageMode && generatedPDF) {
+        formData.append("document", generatedPDF.blob, generatedPDF.name);
+      } else if (uploadedFile) {
         formData.append("document", uploadedFile);
       }
 
@@ -412,7 +323,11 @@ export function AddReminderPage() {
     setPushNotification(false);
     setPriority("medium");
     setNotes("");
-    removeFile();
+    setUploadedFile(null);
+    // Reset multi-page scanner state
+    setUseMultiPageMode(false);
+    setScannedPages([]);
+    setGeneratedPDF(null);
     setErrors({});
     setSuccessMessage("");
   };
@@ -914,214 +829,56 @@ export function AddReminderPage() {
 
           {/* File Upload Section */}
           <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              Upload Document <span className="text-red-500">(Optional)</span>
-            </h2>
-
-            {/* Hidden file inputs */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleCameraCapture}
-              className="hidden"
-            />
-            
-            {/* File naming input - shown when file is selected */}
-            {uploadedFile && (
-              <div className="mb-4 p-4 bg-navy-50 rounded-xl border border-navy-200">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  File Name
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={uploadedFile.displayName || uploadedFile.name.split('.')[0]}
-                    onChange={(e) => {
-                      const newName = e.target.value;
-                      setUploadedFile({
-                        ...uploadedFile,
-                        displayName: newName,
-                      });
-                    }}
-                    placeholder="Enter file name"
-                    className="flex-1 px-3 py-2 rounded-lg border border-navy-300 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20 outline-none transition-all text-gray-900 text-sm"
-                  />
-                  <span className="text-xs text-gray-500 pt-2.5">.{uploadedFile.name.split('.').pop()}</span>
-                </div>
-              </div>
-            )}
-
-            {!uploadedFile ? (
-              <div className="relative space-y-4">
-                {/* Mobile/Tablet Upload Options */}
-                <div
-                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-                    errors.file ? "border-red-300 bg-red-50" : "border-gray-300 hover:border-navy-400 hover:bg-navy-50/50"
-                  }`}
-                >
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <p className="text-gray-600 font-medium mb-1">Upload your document</p>
-                  <p className="text-sm text-gray-500 mb-6 font-medium">
-                    Allowed: Images, PDF, Word, Excel (Max 10MB)
-                  </p>
-
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-navy-900 text-white rounded-lg font-medium hover:bg-navy-950 transition-colors min-h-[44px]"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                Choose From Device
-              </button>
+                Document <span className="text-gray-500">(Optional)</span>
+              </h2>
+              
+              {/* Mode toggle */}
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white border-2 border-navy-900 text-navy-900 rounded-lg font-medium hover:bg-navy-50 transition-colors min-h-[44px]"
+                onClick={toggleMultiPageMode}
+                className="text-sm text-navy-600 hover:text-navy-800 font-medium flex items-center gap-1"
               >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0118.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Open Camera
-                    </button>
-                  </div>
-                </div>
-
-                {/* Desktop QR Code Option */}
-                {typeof window !== 'undefined' && window.innerWidth >= 768 && (
-                  <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center bg-blue-50/50">
-                    <p className="text-sm text-blue-700 font-medium mb-3">Mobile Device?</p>
-                    <p className="text-xs text-blue-600 mb-4">
-                      Scan this QR code with your phone to upload directly from mobile
-                    </p>
-                    <div className="w-32 h-32 mx-auto bg-white border-2 border-blue-300 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <svg className="w-8 h-8 mx-auto text-blue-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span className="text-xs text-blue-600">QR Code</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-blue-600 mt-3">
-                      (QR code feature coming soon)
-                    </p>
-                  </div>
-                )}
-
-                {errors.file && uploadedFile === null && (
-                  <p className="text-red-600 text-sm mt-2 flex items-center gap-1">
+                {useMultiPageMode ? (
+                  <>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    {errors.file}
-                  </p>
+                    Single File Mode
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0118.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Multi-Page Scanner
+                  </>
                 )}
-              </div>
+              </button>
+            </div>
+
+            {/* Multi-Page Scanner Mode */}
+            {useMultiPageMode ? (
+              <MultiFileScanner
+                onFilesChange={setScannedPages}
+                onPDFGenerated={handlePDFGenerated}
+                maxTotalSizeMB={MAX_FILE_SIZE_MB}
+              />
             ) : (
-              <div className="bg-gradient-to-br from-navy-50 to-blue-50 rounded-xl p-6 border border-navy-200">
-                <div className="flex items-start gap-4">
-                  {/* File Preview */}
-                  {filePreview ? (
-                    <div className="relative w-28 h-28 rounded-lg overflow-hidden border-2 border-navy-300 flex-shrink-0 shadow-md">
-                      <img
-                        src={filePreview}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-28 h-28 rounded-lg bg-gradient-to-br from-navy-100 to-navy-50 flex items-center justify-center flex-shrink-0 border-2 border-navy-200">
-                      <div className="text-center">
-                        <svg className="w-12 h-12 text-navy-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-xs text-navy-600 font-medium">{uploadedFile.name.split('.').pop().toUpperCase()}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* File Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">{uploadedFile.displayName || uploadedFile.name.split('.')[0]}</p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      {uploadedFile.type || 'File'}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-0.5 font-medium">
-                      {(uploadedFile.size / 1024).toFixed(1)} KB
-                    </p>
-
-                    {/* File Actions */}
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {filePreview && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCropImage(filePreview);
-                              setShowCropModal(true);
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-navy-700 bg-navy-100 rounded-lg hover:bg-navy-200 transition-colors min-h-[40px]"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 10h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            Crop
-                          </button>
-                          <button
-                            type="button"
-                            onClick={convertToPDF}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors min-h-[40px]"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Convert to PDF
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors min-h-[40px]"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Replace
-                      </button>
-                      <button
-                        type="button"
-                        onClick={removeFile}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors min-h-[40px]"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <FileUploader onChange={handleFileChange} />
+            )}
+            {errors.file && !uploadedFile && (
+              <p className="text-red-600 text-sm mt-2 flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
+                </svg>
+                {errors.file}
+              </p>
             )}
           </section>
 
@@ -1159,114 +916,6 @@ export function AddReminderPage() {
           </div>
         </form>
       </main>
-
-      {/* Crop Modal */}
-      {showCropModal && cropImage && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Crop Image</h3>
-              <button
-                onClick={() => {
-                  setShowCropModal(false);
-                  setCropImage(null);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-4">
-              <div className="relative bg-gray-100 rounded-xl overflow-hidden mb-4" style={{ maxHeight: "400px" }}>
-                <img
-                  src={cropImage}
-                  alt="Crop preview"
-                  className="max-w-full max-h-[400px] mx-auto object-contain"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Crop Position X: {cropSettings.x}%
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max={100 - cropSettings.width}
-                    value={cropSettings.x}
-                    onChange={(e) => setCropSettings((prev) => ({ ...prev, x: parseInt(e.target.value) }))}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Crop Position Y: {cropSettings.y}%
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max={100 - cropSettings.height}
-                    value={cropSettings.y}
-                    onChange={(e) => setCropSettings((prev) => ({ ...prev, y: parseInt(e.target.value) }))}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Width: {cropSettings.width}%
-                  </label>
-                  <input
-                    type="range"
-                    min="20"
-                    max="100"
-                    value={cropSettings.width}
-                    onChange={(e) => setCropSettings((prev) => ({ ...prev, width: parseInt(e.target.value) }))}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Height: {cropSettings.height}%
-                  </label>
-                  <input
-                    type="range"
-                    min="20"
-                    max="100"
-                    value={cropSettings.height}
-                    onChange={(e) => setCropSettings((prev) => ({ ...prev, height: parseInt(e.target.value) }))}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-gray-200 flex gap-3">
-              <button
-                onClick={() => {
-                  setShowCropModal(false);
-                  setCropImage(null);
-                }}
-                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors min-h-[44px]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={applyCrop}
-                className="flex-1 px-4 py-3 bg-navy-900 text-white rounded-lg font-medium hover:bg-navy-950 transition-colors min-h-[44px]"
-              >
-                Apply Crop
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Hidden canvas for cropping */}
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }

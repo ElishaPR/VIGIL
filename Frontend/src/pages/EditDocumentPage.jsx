@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import FileUploader from "../components/FileUploader";
+import {
+  MAX_FILE_SIZE_MB,
+  ACCEPT_FILE_EXTENSIONS,
+} from "../utils/fileConfig.js";
 
 const CATEGORY_OPTIONS = [
   { id: "travel", label: "Travel" },
@@ -133,6 +138,15 @@ export function EditDocumentPage() {
     }
   };
 
+  const handleFileChange = (fileData) => {
+    if (fileData && fileData.file) {
+      setUploadedFile(fileData.file);
+      clearError("file");
+    } else {
+      setUploadedFile(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -233,6 +247,8 @@ export function EditDocumentPage() {
           {/* File */}
           <section className="bg-white rounded-2xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">File</h2>
+
+            {/* Show existing file */}
             {existingFileName && !uploadedFile && (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 mb-4">
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,29 +258,9 @@ export function EditDocumentPage() {
                 <span className="text-xs text-gray-500">Existing file</span>
               </div>
             )}
-            <label className="block">
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-navy-400 transition-colors">
-                <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                <p className="text-sm text-gray-600">
-                  {uploadedFile ? uploadedFile.name : "Click to replace file (optional)"}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">PDF, images, Word, Excel · max 10 MB</p>
-              </div>
-              <input
-                type="file"
-                className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  if (file.size > 10 * 1024 * 1024) { setError("file", "File size exceeds 10 MB."); return; }
-                  setUploadedFile(file);
-                  clearError("file");
-                }}
-              />
-            </label>
+
+            {/* FileUploader for new file */}
+            <FileUploader onChange={handleFileChange} />
             {errors.file && <p className="text-red-600 text-sm mt-2">{errors.file}</p>}
           </section>
 

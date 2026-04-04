@@ -221,8 +221,8 @@ def update_reminder_service(
     reminder.email_notification = email_notification
 
     if remove_document:
-        print(f"[DEBUG SERVICE] Setting doc_id to None because remove_document=True")
-        reminder.doc_id = None
+        print(f"[DEBUG SERVICE] Preserving doc_id {reminder.doc_id} - file removed but metadata kept")
+        # Don't set doc_id to None - keep the link to document with category/expiry
     elif new_doc_id is not None:
         print(f"[DEBUG SERVICE] Setting doc_id to {new_doc_id} (new_doc_id)")
         reminder.doc_id = new_doc_id
@@ -231,8 +231,8 @@ def update_reminder_service(
     # IMPORTANT: Existing doc_id is preserved by default
     # Only change when explicitly removing or replacing
 
-    # Update associated document if it exists (and we didn't just remove it)
-    if not remove_document and doc:
+    # Update associated document metadata if it exists (category, expiry, title)
+    if doc:
         if category and category.strip():
             doc.doc_category = category.strip()
         if document_title and document_title.strip():
