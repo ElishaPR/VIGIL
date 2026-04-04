@@ -4,7 +4,6 @@ import { getToken, deleteToken } from "firebase/messaging";
 import { messaging } from "../firebase";
 import { PrimaryButton } from "../components/Auth/PrimaryButton";
 import DocumentPreview from "../components/DocumentPreview";
-import { MultiFileScanner } from "../components/MultiFileScanner";
 import FileUploader from "../components/FileUploader";
 import {
   MAX_FILE_SIZE_MB,
@@ -72,11 +71,6 @@ export default function EditReminderPage() {
     fileType: null,
     existingDocumentUuid: null,
   });
-
-  // Multi-page scanner state
-  const [useMultiPageMode, setUseMultiPageMode] = useState(false);
-  const [scannedPages, setScannedPages] = useState([]);
-  const [generatedPDF, setGeneratedPDF] = useState(null);
 
   // Crop state (kept separate as it's complex)
   const [showCropModal, setShowCropModal] = useState(false);
@@ -241,22 +235,6 @@ export default function EditReminderPage() {
       fileType: null,
       removeExistingFile: true,
     }));
-  };
-
-  // Handle multi-page scanner PDF generation
-  const handlePDFGenerated = (pdfBlob, filename) => {
-    setGeneratedPDF({ blob: pdfBlob, name: filename });
-    setSuccessMessage(`PDF generated: ${filename}`);
-  };
-
-  // Toggle between single file and multi-page mode
-  const toggleMultiPageMode = () => {
-    setUseMultiPageMode(!useMultiPageMode);
-    // Clear files when switching modes
-    removeFile();
-    setScannedPages([]);
-    setGeneratedPDF(null);
-    clearError("file");
   };
 
   // Apply crop
@@ -447,11 +425,8 @@ export default function EditReminderPage() {
       if (documentTitle.trim()) {
         formData.append("document_title", documentTitle.trim());
       }
-      // Handle file upload - either single file, generated PDF from multi-page scanner, or existing document
-      if (useMultiPageMode && generatedPDF) {
-        formData.append("document", generatedPDF.blob, generatedPDF.name);
-        formData.append("remove_document", "true"); // Remove existing when uploading new PDF
-      } else if (fileState.uploadedFile) {
+      // Handle file upload - either single file or existing document
+      if (fileState.uploadedFile) {
         formData.append("document", fileState.uploadedFile);
         formData.append("remove_document", fileState.removeExistingFile ? "true" : "false");
       } else {
@@ -945,135 +920,96 @@ export default function EditReminderPage() {
 
           {/* File Upload Section */}
           <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 mb-24">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                Document <span className="text-gray-500">(Optional)</span>
-              </h2>
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Document <span className="text-gray-500">(Optional)</span>
+            </h2>
 
-              {/* Mode toggle - only show when no existing document */}
-              {!fileState.existingDocumentUuid && (
-                <button
-                  type="button"
-                  onClick={toggleMultiPageMode}
-                  className="text-sm text-navy-600 hover:text-navy-800 font-medium flex items-center gap-1"
-                >
-                  {useMultiPageMode ? (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Single File Mode
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0118.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Multi-Page Scanner
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-
-            {/* Multi-Page Scanner Mode */}
-            {useMultiPageMode && !fileState.existingDocumentUuid ? (
-              <MultiFileScanner
-                onFilesChange={setScannedPages}
-                onPDFGenerated={handlePDFGenerated}
-                maxTotalSizeMB={MAX_FILE_SIZE_MB}
-              />
+            {!fileState.uploadedFile ? (
+              <FileUploader onChange={handleFileChange} />
             ) : (
-              <>
-                {!fileState.uploadedFile ? (
-                  <FileUploader onChange={handleFileChange} />
-                ) : (
-                  <div className="bg-gradient-to-br from-navy-50 to-blue-50 rounded-xl p-6 border border-navy-200 mt-4">
-                    <div className="flex flex-col sm:flex-row items-start gap-4">
-                      {/* File Preview */}
-                      <div className="relative w-full sm:w-28 h-32 sm:h-28 rounded-lg overflow-hidden border-2 border-navy-300 flex-shrink-0 shadow-md bg-white flex items-center justify-center">
-                        {fileState.fileType === "pdf" ? (
-                          <div className="text-center w-full">
-                            <svg className="w-12 h-12 text-navy-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span className="text-xs text-navy-600 font-medium block">PDF</span>
-                          </div>
-                        ) : (
-                          <img
-                            src={URL.createObjectURL(fileState.uploadedFile)}
-                            alt="Preview"
-                            className="w-full h-full object-cover"
-                          />
-                        )}
+              <div className="bg-gradient-to-br from-navy-50 to-blue-50 rounded-xl p-6 border border-navy-200 mt-4">
+                <div className="flex flex-col sm:flex-row items-start gap-4">
+                  {/* File Preview */}
+                  <div className="relative w-full sm:w-28 h-32 sm:h-28 rounded-lg overflow-hidden border-2 border-navy-300 flex-shrink-0 shadow-md bg-white flex items-center justify-center">
+                    {fileState.fileType === "pdf" ? (
+                      <div className="text-center w-full">
+                        <svg className="w-12 h-12 text-navy-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-xs text-navy-600 font-medium block">PDF</span>
                       </div>
+                    ) : (
+                      <img
+                        src={URL.createObjectURL(fileState.uploadedFile)}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
 
-                      {/* File Info & Actions */}
-                      <div className="flex-1 min-w-0 w-full">
-                        <p className="font-semibold text-gray-900 truncate">
-                          {fileState.uploadedFile.name}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {fileState.fileType === "pdf" ? "PDF Document" : "Image File"}
-                        </p>
-                        
-                        {fileState.uploadedFile && (
-                          <p className="text-sm text-gray-600 mt-0.5 font-medium">
-                            {(fileState.uploadedFile.size / 1024).toFixed(1)} KB
-                          </p>
-                        )}
+                  {/* File Info & Actions */}
+                  <div className="flex-1 min-w-0 w-full">
+                    <p className="font-semibold text-gray-900 truncate">
+                      {fileState.uploadedFile.name}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {fileState.fileType === "pdf" ? "PDF Document" : "Image File"}
+                    </p>
+                    
+                    {fileState.uploadedFile && (
+                      <p className="text-sm text-gray-600 mt-0.5 font-medium">
+                        {(fileState.uploadedFile.size / 1024).toFixed(1)} KB
+                      </p>
+                    )}
 
-                        <div className="flex flex-wrap gap-2 mt-3 w-full">
-                          {fileState.fileType !== "pdf" && fileState.uploadedFile && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const previewUrl = URL.createObjectURL(fileState.uploadedFile);
-                                setCropImage(previewUrl);
-                                setShowCropModal(true);
-                              }}
-                              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-navy-700 bg-navy-100 rounded-lg hover:bg-navy-200 transition-colors min-h-[40px]"
-                            >
-                              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 10h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              <span className="truncate">Crop</span>
-                            </button>
-                          )}
-                          
-                          {fileState.fileType !== "pdf" && fileState.uploadedFile && (
-                            <button
-                              type="button"
-                              onClick={convertToPDF}
-                              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors min-h-[40px]"
-                            >
-                              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              <span className="truncate">To PDF</span>
-                            </button>
-                          )}
+                    <div className="flex flex-wrap gap-2 mt-3 w-full">
+                      {fileState.fileType !== "pdf" && fileState.uploadedFile && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const previewUrl = URL.createObjectURL(fileState.uploadedFile);
+                            setCropImage(previewUrl);
+                            setShowCropModal(true);
+                          }}
+                          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-navy-700 bg-navy-100 rounded-lg hover:bg-navy-200 transition-colors min-h-[40px]"
+                        >
+                          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 10h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span className="truncate">Crop</span>
+                        </button>
+                      )}
+                      
+                      {fileState.fileType !== "pdf" && fileState.uploadedFile && (
+                        <button
+                          type="button"
+                          onClick={convertToPDF}
+                          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors min-h-[40px]"
+                        >
+                          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="truncate">To PDF</span>
+                        </button>
+                      )}
 
-                          <button
-                            type="button"
-                            onClick={removeFile}
-                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors min-h-[40px]"
-                          >
-                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            <span className="truncate">Remove</span>
-                          </button>
-                        </div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={removeFile}
+                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors min-h-[40px]"
+                      >
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span className="truncate">Remove</span>
+                      </button>
                     </div>
                   </div>
-                )}
-              </> 
+                </div>
+              </div>
             )}
           </section>
 

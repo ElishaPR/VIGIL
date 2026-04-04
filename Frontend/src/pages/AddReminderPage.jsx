@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { messaging } from "../firebase";
 import { getToken, deleteToken } from "firebase/messaging";
 import { PrimaryButton } from "../components/Auth/PrimaryButton";
-import { MultiFileScanner } from "../components/MultiFileScanner";
 import FileUploader from "../components/FileUploader";
 import {
   MAX_FILE_SIZE_MB,
@@ -63,11 +62,6 @@ export function AddReminderPage() {
   // File state (single file mode)
   const [uploadedFile, setUploadedFile] = useState(null);
 
-  // Multi-page scanner state
-  const [useMultiPageMode, setUseMultiPageMode] = useState(false);
-  const [scannedPages, setScannedPages] = useState([]);
-  const [generatedPDF, setGeneratedPDF] = useState(null);
-
   // UI state
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -106,22 +100,6 @@ export function AddReminderPage() {
     } else {
       setUploadedFile(null);
     }
-  };
-
-  // Handle multi-page scanner PDF generation
-  const handlePDFGenerated = (pdfBlob, filename) => {
-    setGeneratedPDF({ blob: pdfBlob, name: filename });
-    setSuccessMessage(`PDF generated: ${filename}`);
-  };
-
-  // Toggle between single file and multi-page mode
-  const toggleMultiPageMode = () => {
-    setUseMultiPageMode(!useMultiPageMode);
-    // Clear files when switching modes
-    setUploadedFile(null);
-    setScannedPages([]);
-    setGeneratedPDF(null);
-    clearError("file");
   };
 
   // Validate form
@@ -233,10 +211,8 @@ export function AddReminderPage() {
         formData.append("notes", notes.trim());
       }
 
-      // Handle file upload - either single file or generated PDF from multi-page scanner
-      if (useMultiPageMode && generatedPDF) {
-        formData.append("document", generatedPDF.blob, generatedPDF.name);
-      } else if (uploadedFile) {
+      // Handle file upload
+      if (uploadedFile) {
         formData.append("document", uploadedFile);
       }
 
@@ -324,10 +300,6 @@ export function AddReminderPage() {
     setPriority("medium");
     setNotes("");
     setUploadedFile(null);
-    // Reset multi-page scanner state
-    setUseMultiPageMode(false);
-    setScannedPages([]);
-    setGeneratedPDF(null);
     setErrors({});
     setSuccessMessage("");
   };
@@ -829,49 +801,14 @@ export function AddReminderPage() {
 
           {/* File Upload Section */}
           <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                Document <span className="text-gray-500">(Optional)</span>
-              </h2>
-              
-              {/* Mode toggle */}
-              <button
-                type="button"
-                onClick={toggleMultiPageMode}
-                className="text-sm text-navy-600 hover:text-navy-800 font-medium flex items-center gap-1"
-              >
-                {useMultiPageMode ? (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Single File Mode
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0118.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    Multi-Page Scanner
-                  </>
-                )}
-              </button>
-            </div>
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <svg className="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Document <span className="text-gray-500">(Optional)</span>
+            </h2>
 
-            {/* Multi-Page Scanner Mode */}
-            {useMultiPageMode ? (
-              <MultiFileScanner
-                onFilesChange={setScannedPages}
-                onPDFGenerated={handlePDFGenerated}
-                maxTotalSizeMB={MAX_FILE_SIZE_MB}
-              />
-            ) : (
-              <FileUploader onChange={handleFileChange} />
-            )}
+            <FileUploader onChange={handleFileChange} />
             {errors.file && !uploadedFile && (
               <p className="text-red-600 text-sm mt-2 flex items-center gap-1">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
